@@ -1,0 +1,78 @@
+# ── macOS ─────────────────────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# ── Windows ───────────────────────────────────────────────────────────────────
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# ── Linux ─────────────────────────────────────────────────────────────────────
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ── JetBrains / CLion ─────────────────────────────────────────────────────────
+.idea/
+*.iml
+cmake-build-*/
+out/
+
+# ── VS Code ───────────────────────────────────────────────────────────────────
+.vscode/
+
+# ── Xcode ─────────────────────────────────────────────────────────────────────
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+
+# ── CMake ─────────────────────────────────────────────────────────────────────
+build/
+build-*/
+_deps/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+CPackConfig.cmake
+CPackSourceConfig.cmake
+install_manifest.txt
+compile_commands.json
+
+# ── Build artefacts ───────────────────────────────────────────────────────────
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+*.app/
+
+# ── Third-party: fetched at build time (do not commit) ────────────────────────
+# JUCE is pulled via FetchContent — gitignored per CLAUDE.md
+third_party/JUCE/
+# Catch2 is pulled via FetchContent
+third_party/Catch2/
+
+# Loris IS committed (vendored) — do not add third_party/loris/ here
+
+
+samples
