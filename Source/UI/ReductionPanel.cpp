@@ -7,6 +7,18 @@ ReductionPanel::ReductionPanel(Project& p, ReductionController& c)
     buildLayout();
 }
 
+void ReductionPanel::setActiveMode(bool isDirect)
+{
+    selectButton.setColour(juce::TextButton::buttonColourId,
+        !isDirect ? juce::Colour(0xff606060) : juce::Colour(0xff1a1a1a));
+    selectButton.setColour(juce::TextButton::textColourOffId,
+        !isDirect ? juce::Colours::white : juce::Colours::grey);
+    directSelButton.setColour(juce::TextButton::buttonColourId,
+        isDirect ? juce::Colour(0xff606060) : juce::Colour(0xff1a1a1a));
+    directSelButton.setColour(juce::TextButton::textColourOffId,
+        isDirect ? juce::Colours::white : juce::Colours::grey);
+}
+
 void ReductionPanel::buildLayout()
 {
     auto addLabelAndSlider = [this](juce::Label& label, juce::Slider& slider) {
@@ -15,6 +27,22 @@ void ReductionPanel::buildLayout()
         slider.setSliderStyle(juce::Slider::LinearHorizontal);
         slider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 60, 20);
     };
+
+    // Edit Mode buttons
+    addAndMakeVisible(editModeLabel);
+    addAndMakeVisible(selectButton);
+    addAndMakeVisible(directSelButton);
+    selectButton.setWantsKeyboardFocus(false);
+    directSelButton.setWantsKeyboardFocus(false);
+    selectButton.onClick = [this] {
+        setActiveMode(false);
+        if (onToolModeChanged) onToolModeChanged(false);
+    };
+    directSelButton.onClick = [this] {
+        setActiveMode(true);
+        if (onToolModeChanged) onToolModeChanged(true);
+    };
+    setActiveMode(false);
 
     addAndMakeVisible(titleLabel);
     titleLabel.setFont(juce::Font{16.0f}.boldened());
@@ -68,21 +96,28 @@ void ReductionPanel::buildLayout()
     addAndMakeVisible(clearButton);
     clearButton.onClick = [this] {
         controller.clearReductions();
-        amplitudeRankSlider.setValue(500, juce::dontSendNotification);
-        durationSlider.setValue(0.0, juce::dontSendNotification);
+        amplitudeRankSlider.setValue(500,   juce::dontSendNotification);
+        durationSlider.setValue(0.0,        juce::dontSendNotification);
         amplitudeThreshSlider.setValue(0.0, juce::dontSendNotification);
-        freqLowSlider.setValue(20.0, juce::dontSendNotification);
-        freqHighSlider.setValue(8000.0, juce::dontSendNotification);
-        energySlider.setValue(0.0, juce::dontSendNotification);
+        freqLowSlider.setValue(20.0,        juce::dontSendNotification);
+        freqHighSlider.setValue(8000.0,     juce::dontSendNotification);
+        energySlider.setValue(0.0,          juce::dontSendNotification);
     };
+
 }
 
 void ReductionPanel::resized()
 {
-    const int rowH  = 40;
+    const int pad    = 8;
+    const int rowH   = 40;
     const int labelH = 18;
-    const int pad   = 8;
-    auto      area  = getLocalBounds().reduced(pad);
+    auto area = getLocalBounds().reduced(pad);
+
+    editModeLabel.setBounds(area.removeFromTop(labelH));
+    auto modeRow = area.removeFromTop(28);
+    selectButton   .setBounds(modeRow.removeFromLeft(modeRow.getWidth() / 2).reduced(2, 0));
+    directSelButton.setBounds(modeRow.reduced(2, 0));
+    area.removeFromTop(pad);
 
     titleLabel.setBounds(area.removeFromTop(24));
     area.removeFromTop(pad);
@@ -93,12 +128,12 @@ void ReductionPanel::resized()
         area.removeFromTop(pad / 2);
     };
 
-    layoutRow(amplitudeRankLabel, amplitudeRankSlider);
-    layoutRow(durationLabel, durationSlider);
+    layoutRow(amplitudeRankLabel,   amplitudeRankSlider);
+    layoutRow(durationLabel,        durationSlider);
     layoutRow(amplitudeThreshLabel, amplitudeThreshSlider);
-    layoutRow(freqLowLabel, freqLowSlider);
-    layoutRow(freqHighLabel, freqHighSlider);
-    layoutRow(energyLabel, energySlider);
+    layoutRow(freqLowLabel,         freqLowSlider);
+    layoutRow(freqHighLabel,        freqHighSlider);
+    layoutRow(energyLabel,          energySlider);
 
     area.removeFromTop(pad);
     clearButton.setBounds(area.removeFromTop(28));

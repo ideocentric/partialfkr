@@ -17,6 +17,7 @@ public:
     void deselect(uint32_t id);
     void toggle(uint32_t id);
     void selectAll(const std::vector<uint32_t>& ids);
+    void invert   (const std::vector<uint32_t>& allIds);
     void clear();
 
     [[nodiscard]] bool isSelected(uint32_t id) const noexcept;

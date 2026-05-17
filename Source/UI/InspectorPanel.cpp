@@ -40,10 +40,6 @@ void InspectorPanel::resized()
     }
 }
 
-void InspectorPanel::paint(juce::Graphics& g)
-{
-    g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId).darker(0.2f));
-}
 
 void InspectorPanel::partialsChanged(Project&) { refresh(); }
 void InspectorPanel::selectionChanged(Selection&) { refresh(); }

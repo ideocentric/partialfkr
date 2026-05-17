@@ -36,6 +36,22 @@ public:
     /** Inform the synth whether any partial is currently soloed. */
     void setSolo(bool anySoloed) noexcept { hasSolo.store(anySoloed); }
 
+    /** Scrub mode: renders a static chord at scrubTargetSeconds without advancing
+     *  the playhead or resetting phases. Call setScrubPosition before setScrubbing(true)
+     *  so the audio thread sees the correct position on the very first block. */
+    void setScrubPosition(double seconds) noexcept
+    {
+        scrubTargetSeconds.store(seconds, std::memory_order_relaxed);
+    }
+    void setScrubbing(bool active) noexcept
+    {
+        isScrubbing.store(active, std::memory_order_release);
+    }
+    [[nodiscard]] bool getIsScrubbing() const noexcept
+    {
+        return isScrubbing.load(std::memory_order_acquire);
+    }
+
     /** Master output gain (linear). Default -20 dB (0.1) prevents clipping on
      *  dense analyses where hundreds of partials sum. Adjust per source material. */
     void  setOutputGain(float gain) noexcept { outputGain.store(gain); }
@@ -43,6 +59,9 @@ public:
 
     /** Read back the current playhead position (for display). */
     [[nodiscard]] double getPlayheadSeconds() const noexcept { return playheadSeconds; }
+
+    /** Current sample rate set by prepareToPlay. */
+    [[nodiscard]] double getSampleRate() const noexcept { return sampleRate; }
 
     // audio thread
     void renderNextBlock(juce::AudioBuffer<float>& outputBuffer,
@@ -68,9 +87,11 @@ private:
     double   sampleRate = 44100.0;
     double   playheadSeconds = 0.0;
 
-    std::atomic<bool>  isPlaying{false};
-    std::atomic<bool>  hasSolo{false};
-    std::atomic<float> outputGain{0.1f};  // -20 dB default
+    std::atomic<bool>   isPlaying{false};
+    std::atomic<bool>   hasSolo{false};
+    std::atomic<float>  outputGain{0.1f};  // -20 dB default
+    std::atomic<bool>   isScrubbing{false};
+    std::atomic<double> scrubTargetSeconds{0.0};
     std::vector<OscState> states;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PartialSynth)

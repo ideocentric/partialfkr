@@ -19,7 +19,6 @@ public:
     ~InspectorPanel() override;
 
     void resized() override;
-    void paint(juce::Graphics& g) override;
 
     // ── Project::Listener ────────────────────────────────────────────────────
     void partialsChanged(Project&) override;

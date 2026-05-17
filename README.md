@@ -1,4 +1,4 @@
-# partialfkr
+# PartialFKR
 
 There are many applications and libraries built around sinusoidal analysis — most of them optimised for high-fidelity reproduction of the input, or clean modification of it. partialfkr is not one of those.
 

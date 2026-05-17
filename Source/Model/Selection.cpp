@@ -29,6 +29,16 @@ void Selection::selectAll(const std::vector<uint32_t>& ids)
     notify();
 }
 
+void Selection::invert(const std::vector<uint32_t>& allIds)
+{
+    std::unordered_set<uint32_t> newSelected;
+    for (auto id : allIds)
+        if (!selected.count(id))
+            newSelected.insert(id);
+    selected = std::move(newSelected);
+    notify();
+}
+
 void Selection::clear()
 {
     if (selected.empty())

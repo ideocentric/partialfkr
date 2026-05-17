@@ -16,6 +16,22 @@ struct Breakpoint {
     float  bandwidth;  ///< Loris bandwidth [0,1]; stored but ignored at synthesis
 };
 
+/** Stable reference to a single breakpoint within a specific partial. */
+struct BreakpointRef {
+    uint32_t partialId;
+    size_t   bpIndex;
+
+    bool operator<(const BreakpointRef& o) const noexcept
+    {
+        if (partialId != o.partialId) return partialId < o.partialId;
+        return bpIndex < o.bpIndex;
+    }
+    bool operator==(const BreakpointRef& o) const noexcept
+    {
+        return partialId == o.partialId && bpIndex == o.bpIndex;
+    }
+};
+
 /**
  * A single sinusoidal component with its time-varying envelope.
  *

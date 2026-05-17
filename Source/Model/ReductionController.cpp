@@ -100,4 +100,7 @@ void ReductionController::recomputeMuteMask()
             p->muted.store(true, std::memory_order_relaxed);
 
     reductionMuted = std::move(newMuted);
+
+    // Notify listeners so PartialView repaints immediately to reflect the new mute state.
+    project.notifyPartialsChanged();
 }

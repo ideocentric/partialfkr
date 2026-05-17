@@ -63,8 +63,31 @@ void PartialSynth::renderNextBlock(juce::AudioBuffer<float>& outputBuffer,
     if (project == nullptr || sampleRate <= 0.0)
         return;
 
-    if (!isPlaying.load(std::memory_order_relaxed))
+    const bool scrubbing = isScrubbing.load(std::memory_order_acquire);
+
+    if (!isPlaying.load(std::memory_order_relaxed) && !scrubbing)
         return;
+
+    // In scrub mode, pin the playhead to the cursor and re-seek bpIndex
+    // without touching phases — lets the oscillators morph smoothly as
+    // the user drags rather than clicking from phase resets.
+    if (scrubbing)
+    {
+        const double scrubT = scrubTargetSeconds.load(std::memory_order_relaxed);
+        playheadSeconds = scrubT;
+        const auto& ps = project->getPartials();
+        if (states.size() != ps.size())
+            resetStates();
+        for (size_t i = 0; i < ps.size(); ++i)
+        {
+            const auto& bps = ps[i]->breakpoints;
+            size_t idx = 0;
+            while (idx + 1 < bps.size() - 1 && bps[idx + 1].time <= scrubT)
+                ++idx;
+            states[i].bpIndex = idx;
+            // state.phase intentionally NOT reset — smooth morph on drag
+        }
+    }
 
     const double blockDuration = static_cast<double>(numSamples) / sampleRate;
     const double tStart        = playheadSeconds;
@@ -78,7 +101,7 @@ void PartialSynth::renderNextBlock(juce::AudioBuffer<float>& outputBuffer,
                       : nullptr;
 
     const auto& partials = project->getPartials();
-    if (states.size() != partials.size())
+    if (!scrubbing && states.size() != partials.size())
         resetStates();
 
     for (size_t i = 0; i < partials.size(); ++i) {
@@ -101,7 +124,9 @@ void PartialSynth::renderNextBlock(juce::AudioBuffer<float>& outputBuffer,
     if (outR != nullptr)
         juce::FloatVectorOperations::copy(outR, outL, numSamples);
 
-    playheadSeconds = tEnd;
+    // Don't advance playhead while scrubbing — position is owned by the cursor
+    if (!scrubbing)
+        playheadSeconds = tEnd;
 }
 
 void PartialSynth::synthesizePartial(const Partial& p,

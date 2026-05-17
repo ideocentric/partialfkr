@@ -20,6 +20,29 @@
 
 ## Planned Features
 
+### 0. Graphics Abstraction Layer
+**Priority: High — do alongside Feature #1**
+
+Extract all drawing from `PartialView::paint()` into a `PartialRenderer` interface owned by `PartialView` via `unique_ptr`. `PartialView` calls `renderer->render(state)` and knows nothing about the backend.
+
+```cpp
+struct RenderState {
+    // partials, view transform, playhead, selection — no JUCE rendering types
+};
+
+class PartialRenderer {
+public:
+    virtual ~PartialRenderer() = default;
+    virtual void render(const RenderState& state) = 0;
+};
+```
+
+Initial implementation: `Juce2DRenderer` (current CoreGraphics/Direct2D/Cairo path).
+Future implementations: `MetalRenderer` (macOS), `OpenGLRenderer` (Windows/Linux).
+Swapping backend is a one-liner in `PartialView`. No rendering types leak through the interface.
+
+---
+
 ### 1. Time Ruler
 **Priority: High — visual foundation for all time-based operations**
 
@@ -142,6 +165,25 @@ Holding a modifier key (TBD — e.g., Option) while moving the cursor over the c
 
 ---
 
+### 9. Multi-Document Cross-File Paste
+**Priority: Low — requires multi-document architecture and menu bar first**
+
+With two or more analyzed files open simultaneously, the clipboard should be document-agnostic — partials or time-range content copied from one document can be pasted into another.
+
+**Prerequisites:**
+- Menu bar with Window menu for document management
+- Multi-document support (each open file gets its own `Project`, `PartialView`, and `PartialSynth`)
+- A shared application-level clipboard (not per-document) so copy from Document A is visible to Document B
+
+**Behaviour:**
+- Copy a partial selection or time-range selection from any open document — these go to the shared clipboard with their breakpoint data and timing intact
+- Switch to another document and paste — the paste semantics are identical to single-document paste (Feature #3 / #5), offset to the clicked time point
+- The pasted partials get new IDs in the destination document; no link back to the source
+
+**Design note:** The clipboard format is already self-contained (`Partial` objects with breakpoints) so no structural changes are needed to support cross-document paste — it's purely an architecture question of where the clipboard lives (application-level singleton vs. per-document).
+
+---
+
 ## Export Features (from CLAUDE.md spec)
 
 All exporters have stub implementations in `Source/Export/`. These need UI wiring and full implementation:
@@ -160,6 +202,6 @@ All exporters have stub implementations in `Source/Export/`. These need UI wirin
 | 1 | Destructive shrink handling | Time-range compress (Feature #6) — warn, preview, or rely on undo? |
 | 2 | Point-edit mode entry/exit | Breakpoint selection (Feature #7) — modifier key, double-click, toolbar toggle? |
 | 3 | Scrub modifier key | Temporal scrubbing (Feature #8) — Option, Space+drag, dedicated mode button? |
-| 4 | Clipboard scope | Does the clipboard persist across file loads? Across sessions? |
+| 4 | Clipboard scope | Application-level singleton (required for cross-document paste, Feature #9). Persists across file loads within a session; does not need to survive app restart. |
 | 5 | Selection highlight colour | Currently white; should differ from muted/soloed state colours |
 | 6 | Output gain UI | Master gain is in the synth but has no knob in the UI yet |

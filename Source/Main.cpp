@@ -1,64 +1,439 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "UI/MainComponent.h"
+#include "UI/CommandIDs.h"
+#include "UI/MacWindowHelpers.h"
 
 #include <JuceHeader.h>
 
-class PartialEditorApplication : public juce::JUCEApplication {
+class PartialFKRApplication : public juce::JUCEApplication {
 public:
-    const juce::String getApplicationName() override
-    {
-        return JUCE_APPLICATION_NAME_STRING;
-    }
-
-    const juce::String getApplicationVersion() override
-    {
-        return JUCE_APPLICATION_VERSION_STRING;
-    }
-
-    bool moreThanOneInstanceAllowed() override { return false; }
+    const juce::String getApplicationName() override { return JUCE_APPLICATION_NAME_STRING; }
+    const juce::String getApplicationVersion() override { return JUCE_APPLICATION_VERSION_STRING; }
+    bool moreThanOneInstanceAllowed() override { return true; }
 
     void initialise(const juce::String& /*commandLineParameters*/) override
     {
-        mainWindow.reset(new MainWindow(getApplicationName()));
+        // Register app-level commands (fileNew) so the command manager knows about them.
+        // MainComponent registers its own commands when it becomes the first target.
+        commandManager.registerAllCommandsForTarget(this);
+        commandManager.setFirstCommandTarget(nullptr);
+
+        // Create the first window before setMacMainMenu so that when menuBarItemsChanged
+        // fires during setMacMainMenu, activeComponent and command registrations are ready.
+        createNewWindow();
+        juce::MenuBarModel::setMacMainMenu(&appMenu);
     }
 
-    void shutdown() override { mainWindow.reset(); }
+    void shutdown() override
+    {
+        juce::MenuBarModel::setMacMainMenu(nullptr);
+        windows.clear();
+    }
 
     void systemRequestedQuit() override { quit(); }
-
     void anotherInstanceStarted(const juce::String& /*commandLine*/) override {}
+
+    // ── Application-level command target (fileNew only) ───────────────────────
+    // JUCEApplication already inherits ApplicationCommandTarget; implement here.
+
+    juce::ApplicationCommandTarget* getNextCommandTarget() override { return nullptr; }
+
+    void getAllCommands(juce::Array<juce::CommandID>& commands) override
+    {
+        commands.add(CommandIDs::fileNew);
+        commands.add(CommandIDs::fileOpenProject);
+        commands.add(CommandIDs::windowMinimize);
+        commands.add(CommandIDs::windowZoom);
+        commands.add(CommandIDs::windowBringAllToFront);
+    }
+
+    void getCommandInfo(juce::CommandID commandID,
+                        juce::ApplicationCommandInfo& result) override
+    {
+        const bool hasWindow = !windows.empty();
+
+        if (commandID == CommandIDs::fileNew)
+        {
+            result.setInfo("New", "Open a new empty project window", "File", 0);
+            result.addDefaultKeypress('n', juce::ModifierKeys::commandModifier);
+        }
+        else if (commandID == CommandIDs::fileOpenProject)
+        {
+            result.setInfo("Open...", "Open a .pfkr project file", "File", 0);
+            result.addDefaultKeypress('o', juce::ModifierKeys::commandModifier);
+        }
+        else if (commandID == CommandIDs::windowMinimize)
+        {
+            result.setInfo("Minimize", "Minimize the window", "Window", 0);
+            result.addDefaultKeypress('m', juce::ModifierKeys::commandModifier);
+            result.setActive(hasWindow);
+        }
+        else if (commandID == CommandIDs::windowZoom)
+        {
+            result.setInfo("Zoom", "Zoom the window", "Window", 0);
+            result.setActive(hasWindow);
+        }
+        else if (commandID == CommandIDs::windowBringAllToFront)
+        {
+            result.setInfo("Bring All to Front", "Bring all windows to the front", "Window", 0);
+            result.setActive(hasWindow);
+        }
+    }
+
+    bool perform(const juce::ApplicationCommandTarget::InvocationInfo& info) override
+    {
+        if (info.commandID == CommandIDs::fileNew)
+        {
+            createNewWindow();
+            return true;
+        }
+        if (info.commandID == CommandIDs::fileOpenProject)
+        {
+            openProjectDialog();
+            return true;
+        }
+        if (info.commandID == CommandIDs::windowMinimize)
+        {
+            if (auto* w = getActiveMainWindow())
+                if (auto* peer = w->getPeer())
+                    peer->setMinimised(true);
+            return true;
+        }
+        if (info.commandID == CommandIDs::windowZoom)
+        {
+            MacWindowHelpers::zoom(getActiveMainWindow());
+            return true;
+        }
+        if (info.commandID == CommandIDs::windowBringAllToFront)
+        {
+            MacWindowHelpers::bringAllToFront();
+            return true;
+        }
+        return false;
+    }
+
+    void openProjectDialog()
+    {
+        auto chooser = std::make_shared<juce::FileChooser>(
+            "Open project", juce::File{}, "*.pfkr");
+        chooser->launchAsync(
+            juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+            [this, chooser](const juce::FileChooser& fc)
+            {
+                const auto results = fc.getResults();
+                if (results.isEmpty()) return;
+                createNewWindow();
+                if (auto* mc = dynamic_cast<MainComponent*>(
+                        windows.back()->getContentComponent()))
+                    mc->loadProject(results[0]);
+            });
+    }
+
+    // ── App-level menu bar model ──────────────────────────────────────────────
+    //
+    // Lives at application scope so the menu bar persists with no windows open.
+    // Menu items are built with addCommandItem so JUCE sets native NSMenuItem
+    // key equivalents and greyed states automatically.
+
+    struct AppMenuBarModel : public juce::MenuBarModel {
+        juce::ApplicationCommandManager& cm;
+        MainComponent* activeComponent = nullptr;
+
+        explicit AppMenuBarModel(juce::ApplicationCommandManager& c) : cm(c) {}
+
+        juce::StringArray getMenuBarNames() override { return { "File", "Edit", "View", "Transport", "Window" }; }
+
+        juce::PopupMenu getMenuForIndex(int index,
+                                        const juce::String& /*name*/) override
+        {
+            // Helper: add a command item with an explicit enable state while still
+            // displaying the registered key equivalent from the command manager.
+            auto addItem = [&](juce::PopupMenu& menu,
+                               juce::CommandID commandID,
+                               bool isEnabled)
+            {
+                if (auto* info = cm.getCommandForID(commandID))
+                {
+                    juce::PopupMenu::Item item;
+                    item.itemID         = (int) commandID;
+                    item.text           = info->shortName;
+                    item.isEnabled      = isEnabled;
+                    item.commandManager = &cm;
+                    menu.addItem(item);
+                }
+            };
+
+            const bool hasParts   = activeComponent != nullptr && activeComponent->hasPartials();
+            const bool hasSel     = activeComponent != nullptr && activeComponent->hasSelection();
+            const bool hasClip    = activeComponent != nullptr && activeComponent->hasClipboard();
+            const bool doUndo     = activeComponent != nullptr && activeComponent->canUndo();
+            const bool doRedo     = activeComponent != nullptr && activeComponent->canRedo();
+            const bool noAudio    = activeComponent == nullptr || !activeComponent->hasSourceAudio();
+            const bool notNorm    = activeComponent == nullptr || !activeComponent->getIsNormalizing();
+            const bool canSave    = hasParts || (activeComponent != nullptr
+                                                 && activeComponent->getCurrentFile().existsAsFile());
+
+            if (index == 0)  // File
+            {
+                juce::PopupMenu file;
+                file.addCommandItem(&cm, CommandIDs::fileNew);
+                file.addCommandItem(&cm, CommandIDs::fileOpenProject);
+                file.addSeparator();
+                addItem(file, CommandIDs::fileAnalyzeAudio, noAudio);
+                file.addSeparator();
+                addItem(file, CommandIDs::fileSave,   canSave);
+                addItem(file, CommandIDs::fileSaveAs, hasParts);
+                file.addSeparator();
+                file.addCommandItem(&cm, CommandIDs::fileClose);
+                file.addSeparator();
+
+                juce::PopupMenu exportSub;
+                exportSub.addCommandItem(&cm, CommandIDs::exportMidi);
+                exportSub.addCommandItem(&cm, CommandIDs::exportCsound);
+                exportSub.addCommandItem(&cm, CommandIDs::exportSdif);
+                exportSub.addCommandItem(&cm, CommandIDs::exportJson);
+                file.addSubMenu("Export", exportSub);
+
+                return file;
+            }
+
+            if (index == 2)  // View
+            {
+                juce::PopupMenu view;
+                view.addCommandItem(&cm, CommandIDs::viewZoomIn);
+                view.addCommandItem(&cm, CommandIDs::viewZoomOut);
+                view.addCommandItem(&cm, CommandIDs::viewZoomFit);
+                view.addSeparator();
+                view.addCommandItem(&cm, CommandIDs::viewTogglePanel);
+                return view;
+            }
+
+            if (index == 4)  // Window
+            {
+                juce::PopupMenu window;
+                window.addCommandItem(&cm, CommandIDs::windowMinimize);
+                window.addCommandItem(&cm, CommandIDs::windowZoom);
+                window.addSeparator();
+                window.addCommandItem(&cm, CommandIDs::windowBringAllToFront);
+                return window;
+            }
+
+            if (index == 3)  // Transport
+            {
+                juce::PopupMenu transport;
+                transport.addCommandItem(&cm, CommandIDs::transportPlayPause);
+                transport.addCommandItem(&cm, CommandIDs::transportStop);
+                transport.addSeparator();
+                transport.addCommandItem(&cm, CommandIDs::transportLoop);
+                return transport;
+            }
+
+            // Edit (index == 1)
+            juce::PopupMenu edit;
+            addItem(edit, juce::StandardApplicationCommandIDs::undo,      doUndo);
+            addItem(edit, juce::StandardApplicationCommandIDs::redo,      doRedo);
+            edit.addSeparator();
+            addItem(edit, juce::StandardApplicationCommandIDs::cut,       hasSel);
+            addItem(edit, juce::StandardApplicationCommandIDs::copy,      hasSel);
+            addItem(edit, juce::StandardApplicationCommandIDs::paste,     hasClip);
+            addItem(edit, juce::StandardApplicationCommandIDs::del,       hasSel);
+            edit.addSeparator();
+            addItem(edit, juce::StandardApplicationCommandIDs::selectAll,   hasParts);
+            addItem(edit, juce::StandardApplicationCommandIDs::deselectAll, hasSel);
+            addItem(edit, CommandIDs::invertSelection,                       hasParts);
+            edit.addSeparator();
+            addItem(edit, CommandIDs::normalize,      hasParts && notNorm);
+            addItem(edit, CommandIDs::scaleAmplitude, hasParts && notNorm);
+            return edit;
+        }
+
+        void menuItemSelected(int, int) override {} // commands handled by command manager
+    };
 
     // ── Document window ───────────────────────────────────────────────────────
 
     class MainWindow : public juce::DocumentWindow {
     public:
-        explicit MainWindow(const juce::String& name)
+        MainWindow(const juce::String& name, PartialFKRApplication& ownerApp)
             : juce::DocumentWindow(
                   name,
                   juce::Desktop::getInstance()
                       .getDefaultLookAndFeel()
                       .findColour(juce::ResizableWindow::backgroundColourId),
-                  juce::DocumentWindow::allButtons)
+                  juce::DocumentWindow::allButtons),
+              app(ownerApp)
         {
             setUsingNativeTitleBar(true);
             setContentOwned(new MainComponent(), true);
             setResizable(true, true);
-            setResizeLimits(800, 500, 10000, 10000);
             centreWithSize(getWidth(), getHeight());
             setVisible(true);
+            setResizeLimits(800, getHeight(), 10000, 10000);
+        }
+
+        // When this window becomes the active (frontmost) window, make its
+        // MainComponent the first target in the command dispatch chain so that
+        // the menu bar reflects this window's state (undo availability, etc.).
+        void activeWindowStatusChanged() override
+        {
+            if (isActiveWindow())
+            {
+                if (auto* mc = dynamic_cast<MainComponent*>(getContentComponent()))
+                {
+                    app.commandManager.registerAllCommandsForTarget(mc);
+                    app.commandManager.setFirstCommandTarget(mc);
+                    app.appMenu.activeComponent = mc;
+                    mc->onMenuStateChanged  = [&app = app] { app.appMenu.menuItemsChanged(); };
+                    mc->onCloseRequested    = [wPtr = static_cast<MainWindow*>(getTopLevelComponent())]
+                                             { wPtr->requestClose(); };
+                    app.appMenu.menuItemsChanged();  // rebuild immediately for new frontmost window
+                }
+            }
+        }
+
+        bool keyPressed(const juce::KeyPress& key) override
+        {
+            if (key == juce::KeyPress('o', juce::ModifierKeys::commandModifier, 0))
+            {
+                app.openProjectDialog();
+                return true;
+            }
+            if (key == juce::KeyPress('n', juce::ModifierKeys::commandModifier, 0))
+            {
+                app.createNewWindow();
+                return true;
+            }
+            if (key == juce::KeyPress('w', juce::ModifierKeys::commandModifier, 0))
+            {
+                requestClose();
+                return true;
+            }
+            return juce::DocumentWindow::keyPressed(key);
         }
 
         void closeButtonPressed() override
         {
-            juce::JUCEApplication::getInstance()->systemRequestedQuit();
+            auto* mc = dynamic_cast<MainComponent*>(getContentComponent());
+            if (mc == nullptr || !mc->isDirty())
+            {
+                juce::MessageManager::callAsync([appPtr = &app, wPtr = this]() {
+                    appPtr->windowClosed(wPtr);
+                });
+                return;
+            }
+
+            const juce::String name = mc->getDisplayName();
+            juce::AlertWindow::showAsync(
+                juce::MessageBoxOptions()
+                    .withIconType(juce::MessageBoxIconType::QuestionIcon)
+                    .withTitle("Save \"" + name + "\"?")
+                    .withMessage("Do you want to save your changes before closing?")
+                    .withButton("Save")
+                    .withButton("Don't Save")
+                    .withButton("Cancel"),
+                [appPtr = &app, wPtr = this, mc](int result)
+                {
+                    if (result == 1)  // Save
+                    {
+                        if (mc->getCurrentFile().existsAsFile())
+                        {
+                            mc->saveCurrentFile();
+                            juce::MessageManager::callAsync([appPtr, wPtr] {
+                                appPtr->windowClosed(wPtr);
+                            });
+                        }
+                        else
+                        {
+                            mc->saveProjectAs([appPtr, wPtr](bool saved) {
+                                if (saved)
+                                    juce::MessageManager::callAsync([appPtr, wPtr] {
+                                        appPtr->windowClosed(wPtr);
+                                    });
+                            });
+                        }
+                    }
+                    else if (result == 2)  // Don't Save
+                    {
+                        juce::MessageManager::callAsync([appPtr, wPtr] {
+                            appPtr->windowClosed(wPtr);
+                        });
+                    }
+                    // result == 3 or 0 → Cancel: do nothing
+                });
         }
 
+        void requestClose() { closeButtonPressed(); }
+
     private:
+        PartialFKRApplication& app;
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainWindow)
     };
 
+    // ── Window management ─────────────────────────────────────────────────────
+
+    MainWindow* getActiveMainWindow()
+    {
+        for (auto& w : windows)
+            if (w->isActiveWindow())
+                return w.get();
+        return windows.empty() ? nullptr : windows.back().get();
+    }
+
+    void createNewWindow()
+    {
+        auto w = std::make_unique<MainWindow>(getApplicationName(), *this);
+
+        if (!windows.empty())
+        {
+            auto pos = windows.back()->getPosition();
+            w->setTopLeftPosition(pos.x + 30, pos.y + 30);
+        }
+
+        windows.push_back(std::move(w));
+
+        // Set the command target, active component, and menu-state callback eagerly.
+        if (auto* mc = dynamic_cast<MainComponent*>(windows.back()->getContentComponent()))
+        {
+            commandManager.registerAllCommandsForTarget(mc);
+            commandManager.setFirstCommandTarget(mc);
+            appMenu.activeComponent  = mc;
+            mc->onMenuStateChanged = [this] { appMenu.menuItemsChanged(); };
+            mc->onCloseRequested   = [w = windows.back().get()] { w->requestClose(); };
+        }
+    }
+
+    void windowClosed(MainWindow* w)
+    {
+        // Clear all references to the closing window's MainComponent before it is destroyed
+        if (appMenu.activeComponent != nullptr)
+        {
+            appMenu.activeComponent->onMenuStateChanged = nullptr;
+            appMenu.activeComponent->onCloseRequested   = nullptr;
+        }
+        commandManager.setFirstCommandTarget(nullptr);
+        appMenu.activeComponent = nullptr;
+
+        windows.erase(
+            std::remove_if(windows.begin(), windows.end(),
+                           [w](const auto& p) { return p.get() == w; }),
+            windows.end());
+
+        if (windows.empty())
+        {
+            quit();
+        }
+        else
+        {
+            // Bring another window to front — triggers activeWindowStatusChanged
+            // which re-establishes the command target for the new frontmost window.
+            windows.back()->toFront(true);
+        }
+    }
+
 private:
-    std::unique_ptr<MainWindow> mainWindow;
+    juce::ApplicationCommandManager commandManager;
+    AppMenuBarModel appMenu{commandManager};
+    std::vector<std::unique_ptr<MainWindow>> windows;
 };
 
-START_JUCE_APPLICATION(PartialEditorApplication)
+START_JUCE_APPLICATION(PartialFKRApplication)
