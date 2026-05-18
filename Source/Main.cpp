@@ -4,6 +4,9 @@
 #include "UI/MacWindowHelpers.h"
 #include "UI/AboutComponent.h"
 #include "UI/PartialFKRLookAndFeel.h"
+#if JUCE_DEBUG
+#include "Dev/ScreenshotHelper.h"
+#endif
 
 #include <JuceHeader.h>
 
@@ -33,6 +36,21 @@ public:
         }
 #else
         juce::MenuBarModel::setMacMainMenu(&appMenu);
+#endif
+
+#if JUCE_DEBUG
+        // Screenshot mode: PartialFKR --screenshots /path/to/sample.pfkr [outDir]
+        if (ScreenshotHelper::isRequested(getCommandLineParameters()))
+        {
+            juce::File pfkrFile, outDir;
+            ScreenshotHelper::parseArgs(getCommandLineParameters(), pfkrFile, outDir);
+            if (pfkrFile.existsAsFile())
+            {
+                shotHelper = std::make_unique<ScreenshotHelper>(
+                    *windows.back(), commandManager);
+                shotHelper->start(pfkrFile, outDir);
+            }
+        }
 #endif
     }
 
@@ -317,6 +335,8 @@ public:
             addItem(edit, juce::StandardApplicationCommandIDs::paste,     hasClip);
             addItem(edit, juce::StandardApplicationCommandIDs::del,       hasSel);
             edit.addSeparator();
+            edit.addCommandItem(&cm, CommandIDs::editStretch);
+            edit.addSeparator();
             addItem(edit, juce::StandardApplicationCommandIDs::selectAll,   hasParts);
             addItem(edit, juce::StandardApplicationCommandIDs::deselectAll, hasSel);
             addItem(edit, CommandIDs::invertSelection,                       hasParts);
@@ -540,6 +560,9 @@ private:
     AppMenuBarModel appMenu{commandManager};
     std::vector<std::unique_ptr<MainWindow>> windows;
     bool isQuitting = false;
+#if JUCE_DEBUG
+    std::unique_ptr<ScreenshotHelper> shotHelper;
+#endif
 };
 
 START_JUCE_APPLICATION(PartialFKRApplication)

@@ -33,6 +33,7 @@ namespace CommandIDs {
     // Join operations
     static constexpr int editBridgePartials   = 0x2080;
     static constexpr int editCrossfadeOverlap = 0x2081;
+    static constexpr int editStretch          = 0x2082;
 
     // Selection
     static constexpr int invertSelection = 0x2030;

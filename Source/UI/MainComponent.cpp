@@ -303,6 +303,13 @@ MainComponent::MainComponent()
     addAndMakeVisible(inspectorPanel);
     addAndMakeVisible(levelMeter);
 
+    partialView.setComponentID("partialView");
+    transportBar.setComponentID("transportBar");
+    reductionPanel.setComponentID("reductionPanel");
+    inspectorPanel.setComponentID("inspectorPanel");
+    levelMeter.setComponentID("levelMeter");
+    gainKnob.setComponentID("gainKnob");
+
     gainKnob.setRange(-40.0, 6.0, 0.1);
     gainKnob.setValue(-20.0, juce::dontSendNotification);
     gainKnob.setDoubleClickReturnValue(true, -20.0);
@@ -1179,6 +1186,7 @@ void MainComponent::getAllCommands(juce::Array<juce::CommandID>& commands)
     commands.add(CommandIDs::scaleAmplitude);
     commands.add(CommandIDs::editBridgePartials);
     commands.add(CommandIDs::editCrossfadeOverlap);
+    commands.add(CommandIDs::editStretch);
     commands.add(CommandIDs::viewZoomIn);
     commands.add(CommandIDs::viewZoomOut);
     commands.add(CommandIDs::viewZoomFit);
@@ -1354,6 +1362,19 @@ void MainComponent::getCommandInfo(juce::CommandID commandID,
             break;
         }
 
+        case CommandIDs::editStretch:
+        {
+            result.setInfo("Stretch / Compress...", "Time-scale selected partials or breakpoints", "Edit", 0);
+            result.addDefaultKeypress('t', 0);
+            bool canStretch = false;
+            if (partialView.getToolMode() == PartialView::ToolMode::Selection)
+                canStretch = !project.getSelection().isEmpty();
+            else if (partialView.getToolMode() == PartialView::ToolMode::DirectSelect)
+                canStretch = !partialView.getSelectedBreakpoints().empty();
+            result.setActive(canStretch);
+            break;
+        }
+
         case CommandIDs::normalize:
             result.setInfo("Normalize", "Scale all unmuted partials so the peak output = 0 dBFS", "Edit", 0);
             result.setActive(hasPartials && !isNormalizing);
@@ -1458,6 +1479,7 @@ bool MainComponent::perform(const juce::ApplicationCommandTarget::InvocationInfo
         case CommandIDs::scaleAmplitude:       performScaleAmplitude();   return true;
         case CommandIDs::editBridgePartials:   performBridgePartials();   return true;
         case CommandIDs::editCrossfadeOverlap: performCrossfadeOverlap(); return true;
+        case CommandIDs::editStretch:          editStretch();             return true;
 
         case CommandIDs::viewZoomIn:  partialView.zoomIn();   return true;
         case CommandIDs::viewZoomOut: partialView.zoomOut();  return true;
