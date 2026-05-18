@@ -164,6 +164,13 @@ RenderState PartialView::buildRenderState() const
 
 // ── Tool mode ─────────────────────────────────────────────────────────────────
 
+void PartialView::clearBreakpointSelection()
+{
+    selectedBreakpoints.clear();
+    if (onBreakpointSelectionChanged) onBreakpointSelectionChanged();
+    repaint();
+}
+
 void PartialView::setToolMode(ToolMode mode)
 {
     toolMode = mode;
@@ -171,6 +178,7 @@ void PartialView::setToolMode(ToolMode mode)
     setMouseCursor(mode == ToolMode::Selection ? juce::MouseCursor::NormalCursor
                                                : juce::MouseCursor::CrosshairCursor);
     if (onToolModeChanged) onToolModeChanged(mode == ToolMode::DirectSelect);
+    if (onBreakpointSelectionChanged) onBreakpointSelectionChanged();
     repaint();
 }
 
@@ -420,6 +428,7 @@ void PartialView::mouseUp(const juce::MouseEvent& e)
                         }
                     }
                 }
+                if (onBreakpointSelectionChanged) onBreakpointSelectionChanged();
             }
             else
             {

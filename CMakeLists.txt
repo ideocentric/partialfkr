@@ -49,15 +49,61 @@ set_target_properties(loris_static PROPERTIES CXX_STANDARD 14)
 target_compile_options(loris_static PRIVATE -w)  # suppress vendored-code warnings
 
 # ── Main application ──────────────────────────────────────────────────────────
+# ── Platform-specific application icon ───────────────────────────────────────
+if(APPLE)
+    set(_app_icon "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icons/PartialFKR.icns")
+elseif(WIN32)
+    set(_app_icon "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icons/PartialFKR.ico")
+else()
+    set(_app_icon "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icons/PartialFKR_512.png")
+endif()
+
 juce_add_gui_app(PartialFKR
     PRODUCT_NAME  "PartialFKR"
     VERSION       "0.1.0"
     BUNDLE_ID     "com.ideocentric.PartialFKR"
-    COMPANY_NAME  "Ideocentric"
+    COMPANY_NAME  "ideocentric"
+    ICON_BIG      "${_app_icon}"
 )
 
 # Generates JuceHeader.h in the artefacts dir — must be called explicitly in JUCE 8
 juce_generate_juce_header(PartialFKR)
+
+# ── macOS: .pfkr file association (post-build plist additions) ────────────────
+if(APPLE)
+    set(_plist "$<TARGET_BUNDLE_DIR:PartialFKR>/Contents/Info.plist")
+    add_custom_command(TARGET PartialFKR POST_BUILD
+        COMMENT "Adding .pfkr file association to Info.plist"
+        # Remove any existing entries from a previous build to avoid duplicates
+        COMMAND /usr/libexec/PlistBuddy -c "Delete :CFBundleDocumentTypes"   "${_plist}" 2>/dev/null || true
+        COMMAND /usr/libexec/PlistBuddy -c "Delete :UTExportedTypeDeclarations" "${_plist}" 2>/dev/null || true
+        # CFBundleDocumentTypes — registers .pfkr with Finder / Open With
+        COMMAND /usr/libexec/PlistBuddy -c "Add :CFBundleDocumentTypes array"                                              "${_plist}"
+        COMMAND /usr/libexec/PlistBuddy -c "Add :CFBundleDocumentTypes:0 dict"                                             "${_plist}"
+        COMMAND /usr/libexec/PlistBuddy -c "Add :CFBundleDocumentTypes:0:CFBundleTypeName string 'PartialFKR Project'"     "${_plist}"
+        COMMAND /usr/libexec/PlistBuddy -c "Add :CFBundleDocumentTypes:0:CFBundleTypeRole string Editor"                  "${_plist}"
+        COMMAND /usr/libexec/PlistBuddy -c "Add :CFBundleDocumentTypes:0:LSHandlerRank string Owner"                      "${_plist}"
+        COMMAND /usr/libexec/PlistBuddy -c "Add :CFBundleDocumentTypes:0:LSItemContentTypes array"                        "${_plist}"
+        COMMAND /usr/libexec/PlistBuddy -c "Add :CFBundleDocumentTypes:0:LSItemContentTypes:0 string com.ideocentric.pfkr" "${_plist}"
+        COMMAND /usr/libexec/PlistBuddy -c "Add :CFBundleDocumentTypes:0:CFBundleTypeExtensions array"                    "${_plist}"
+        COMMAND /usr/libexec/PlistBuddy -c "Add :CFBundleDocumentTypes:0:CFBundleTypeExtensions:0 string pfkr"            "${_plist}"
+        # UTExportedTypeDeclarations — defines the com.ideocentric.pfkr UTI
+        COMMAND /usr/libexec/PlistBuddy -c "Add :UTExportedTypeDeclarations array"                                        "${_plist}"
+        COMMAND /usr/libexec/PlistBuddy -c "Add :UTExportedTypeDeclarations:0 dict"                                       "${_plist}"
+        COMMAND /usr/libexec/PlistBuddy -c "Add :UTExportedTypeDeclarations:0:UTTypeIdentifier string com.ideocentric.pfkr" "${_plist}"
+        COMMAND /usr/libexec/PlistBuddy -c "Add :UTExportedTypeDeclarations:0:UTTypeDescription string 'PartialFKR Project'" "${_plist}"
+        COMMAND /usr/libexec/PlistBuddy -c "Add :UTExportedTypeDeclarations:0:UTTypeConformsTo array"                     "${_plist}"
+        COMMAND /usr/libexec/PlistBuddy -c "Add :UTExportedTypeDeclarations:0:UTTypeConformsTo:0 string public.data"      "${_plist}"
+        COMMAND /usr/libexec/PlistBuddy -c "Add :UTExportedTypeDeclarations:0:UTTypeConformsTo:1 string public.json"      "${_plist}"
+        COMMAND /usr/libexec/PlistBuddy -c "Add :UTExportedTypeDeclarations:0:UTTypeTagSpecification dict"                "${_plist}"
+        COMMAND /usr/libexec/PlistBuddy -c "Add :UTExportedTypeDeclarations:0:UTTypeTagSpecification:public.filename-extension array" "${_plist}"
+        COMMAND /usr/libexec/PlistBuddy -c "Add :UTExportedTypeDeclarations:0:UTTypeTagSpecification:public.filename-extension:0 string pfkr" "${_plist}"
+        # juceaide creates a stub Icon.icns when given a pre-built .icns — overwrite it with the real file
+        COMMAND ${CMAKE_COMMAND} -E copy
+            "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icons/PartialFKR.icns"
+            "$<TARGET_BUNDLE_DIR:PartialFKR>/Contents/Resources/Icon.icns"
+    )
+endif()
 
 target_sources(PartialFKR PRIVATE
     Source/Main.cpp
@@ -72,6 +118,7 @@ target_sources(PartialFKR PRIVATE
     Source/Model/PfkrFormat.cpp
     Source/UI/Juce2DRenderer.cpp
     Source/UI/LevelMeter.cpp
+    Source/UI/AboutComponent.cpp
     Source/UI/MacProxyIcon.cpp
     Source/UI/MacProxyIcon.mm
     Source/UI/MacWindowHelpers.cpp
@@ -82,7 +129,9 @@ target_sources(PartialFKR PRIVATE
     Source/UI/TransportBar.cpp
     Source/UI/InspectorPanel.cpp
     Source/Export/CsoundExporter.cpp
+    Source/Export/SuperColliderExporter.cpp
     Source/Export/MidiExporter.cpp
+    Source/Export/MidiPackageExporter.cpp
     Source/Export/SdifExporter.cpp
     Source/Export/JsonExporter.cpp
 )

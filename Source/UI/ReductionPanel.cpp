@@ -55,7 +55,7 @@ void ReductionPanel::buildLayout()
     };
 
     addLabelAndSlider(durationLabel, durationSlider);
-    durationSlider.setRange(0.0, 2.0, 0.001);
+    durationSlider.setRange(0.0, 0.250, 0.001);
     durationSlider.setValue(0.0, juce::dontSendNotification);
     durationSlider.onValueChange = [this] {
         controller.applyDurationThreshold(durationSlider.getValue());
@@ -87,7 +87,7 @@ void ReductionPanel::buildLayout()
     };
 
     addLabelAndSlider(energyLabel, energySlider);
-    energySlider.setRange(0.0, 1.0, 0.001);
+    energySlider.setRange(0.0, 0.1, 0.0001);
     energySlider.setValue(0.0, juce::dontSendNotification);
     energySlider.onValueChange = [this] {
         controller.applyEnergyThreshold(static_cast<float>(energySlider.getValue()));

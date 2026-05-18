@@ -6,6 +6,9 @@
 #include <unordered_map>
 #include <unordered_set>
 
+// Shared clipboard — static so copies in one window are visible to all windows.
+std::vector<MainComponent::PartialClip> MainComponent::clipboard;
+
 // ── Export helper ─────────────────────────────────────────────────────────────
 
 /** Copies non-muted partials into a new vector suitable for the export APIs. */
@@ -222,6 +225,73 @@ struct AddPartialsAction : public juce::UndoableAction {
     }
 };
 
+/** Undoable join of two partials into one (shared by bridge and crossfade). */
+struct JoinPartialsAction : public juce::UndoableAction {
+    Project&         project;
+    PartialSnapshot  snapA, snapB;   // originals — restored on undo
+    PartialSnapshot  merged;         // result    — restored on redo
+
+    JoinPartialsAction(Project& p,
+                       PartialSnapshot a, PartialSnapshot b, PartialSnapshot m)
+        : project(p), snapA(std::move(a)), snapB(std::move(b)), merged(std::move(m)) {}
+
+    bool perform() override
+    {
+        project.deletePartials({ snapA.id, snapB.id });
+        std::vector<std::unique_ptr<Partial>> v;
+        v.push_back(restoreFrom(merged));
+        project.addPartials(std::move(v));
+        return true;
+    }
+
+    bool undo() override
+    {
+        project.deletePartials({ merged.id });
+        std::vector<std::unique_ptr<Partial>> v;
+        v.push_back(restoreFrom(snapA));
+        v.push_back(restoreFrom(snapB));
+        project.addPartials(std::move(v));
+        return true;
+    }
+
+    int getSizeInUnits() override
+    {
+        const int n = static_cast<int>(
+            (snapA.breakpoints.size() + snapB.breakpoints.size() + merged.breakpoints.size())
+            * sizeof(Breakpoint));
+        return std::max(1, n);
+    }
+};
+
+// ── Join math helpers ─────────────────────────────────────────────────────────
+
+static constexpr double kJoinInterval = 0.005;  // 5 ms — matches Loris hop time
+
+/** Linear interpolation of all Breakpoint fields at time t within [t0, t1]. Phase is zeroed. */
+static Breakpoint lerpBP(const Breakpoint& a, const Breakpoint& b,
+                          double t, double t0, double t1) noexcept
+{
+    const float alpha = (t1 > t0) ? static_cast<float>((t - t0) / (t1 - t0)) : 0.0f;
+    return { t,
+             a.frequency + alpha * (b.frequency - a.frequency),
+             a.amplitude + alpha * (b.amplitude - a.amplitude),
+             0.0f,
+             a.bandwidth + alpha * (b.bandwidth - a.bandwidth) };
+}
+
+/** Evaluate a partial's breakpoint fields at an arbitrary time via linear interp. */
+static Breakpoint evaluateAt(const Partial& p, double t) noexcept
+{
+    const auto& bps = p.breakpoints;
+    if (bps.empty())          return { t, 0.0f, 0.0f, 0.0f, 0.0f };
+    if (t <= bps.front().time) { auto bp = bps.front(); bp.time = t; bp.phase = 0.0f; return bp; }
+    if (t >= bps.back().time)  { auto bp = bps.back();  bp.time = t; bp.phase = 0.0f; return bp; }
+    for (size_t i = 0; i + 1 < bps.size(); ++i)
+        if (t >= bps[i].time && t <= bps[i + 1].time)
+            return lerpBP(bps[i], bps[i + 1], t, bps[i].time, bps[i + 1].time);
+    { auto bp = bps.back(); bp.time = t; bp.phase = 0.0f; return bp; }
+}
+
 MainComponent::MainComponent()
 {
     project.addListener(this);
@@ -257,7 +327,8 @@ MainComponent::MainComponent()
     partialView.onRedo             = [this] { editRedo(); };
     partialView.onBreakpointDelete = [this] { editBreakpointDelete(); };
     partialView.onStretch          = [this] { editStretch(); };
-    partialView.onToolModeChanged  = [this](bool isDirect) { reductionPanel.setActiveMode(isDirect); };
+    partialView.onToolModeChanged              = [this](bool isDirect) { reductionPanel.setActiveMode(isDirect); };
+    partialView.onBreakpointSelectionChanged   = [this] { if (onMenuStateChanged) onMenuStateChanged(); };
 
     reductionPanel.onToolModeChanged = [this](bool isDirect) {
         partialView.setToolMode(isDirect ? PartialView::ToolMode::DirectSelect
@@ -545,6 +616,7 @@ void MainComponent::onAnalysisComplete(std::vector<std::unique_ptr<Partial>> par
 void MainComponent::setDirtyFlag(bool d)
 {
     dirty = d;
+    if (onMenuStateChanged) onMenuStateChanged();
 }
 
 juce::String MainComponent::getDisplayName() const
@@ -1089,7 +1161,9 @@ void MainComponent::getAllCommands(juce::Array<juce::CommandID>& commands)
     commands.add(CommandIDs::fileSave);
     commands.add(CommandIDs::fileSaveAs);
     commands.add(CommandIDs::exportMidi);
+    commands.add(CommandIDs::exportMidiPackage);
     commands.add(CommandIDs::exportCsound);
+    commands.add(CommandIDs::exportSuperCollider);
     commands.add(CommandIDs::exportSdif);
     commands.add(CommandIDs::exportJson);
     commands.add(juce::StandardApplicationCommandIDs::undo);
@@ -1103,6 +1177,8 @@ void MainComponent::getAllCommands(juce::Array<juce::CommandID>& commands)
     commands.add(CommandIDs::invertSelection);
     commands.add(CommandIDs::normalize);
     commands.add(CommandIDs::scaleAmplitude);
+    commands.add(CommandIDs::editBridgePartials);
+    commands.add(CommandIDs::editCrossfadeOverlap);
     commands.add(CommandIDs::viewZoomIn);
     commands.add(CommandIDs::viewZoomOut);
     commands.add(CommandIDs::viewZoomFit);
@@ -1145,11 +1221,19 @@ void MainComponent::getCommandInfo(juce::CommandID commandID,
             break;
 
         case CommandIDs::exportMidi:
-            result.setInfo("Export as MIDI/MPE...", "Export partials as a MIDI file", "File", 0);
+            result.setInfo("Export as MIDI/MPE...", "Export partials as a single MPE MIDI file", "File", 0);
+            result.setActive(hasPartials);
+            break;
+        case CommandIDs::exportMidiPackage:
+            result.setInfo("Export MIDI Package...", "Export one MIDI file per partial with BOM and readme", "File", 0);
             result.setActive(hasPartials);
             break;
         case CommandIDs::exportCsound:
-            result.setInfo("Export as Csound Score...", "Export partials as a Csound score", "File", 0);
+            result.setInfo("Export as Csound CSD...", "Export partials as a self-contained Csound CSD file", "File", 0);
+            result.setActive(hasPartials);
+            break;
+        case CommandIDs::exportSuperCollider:
+            result.setInfo("Export as SuperCollider...", "Export partials as a SuperCollider .scd file", "File", 0);
             result.setActive(hasPartials);
             break;
         case CommandIDs::exportSdif:
@@ -1209,6 +1293,66 @@ void MainComponent::getCommandInfo(juce::CommandID commandID,
                                            | juce::ModifierKeys::shiftModifier);
             result.setActive(hasPartials);
             break;
+
+        case CommandIDs::editBridgePartials:
+        {
+            result.setInfo("Bridge Partials", "Interpolate across the gap between two partial fragments", "Edit", 0);
+            result.addDefaultKeypress('j', juce::ModifierKeys::commandModifier);
+            bool canBridge = false;
+            if (partialView.getToolMode() == PartialView::ToolMode::Selection)
+            {
+                const auto ids = project.getSelection().getSelectedIds();
+                if (ids.size() == 2)
+                {
+                    const auto* a = project.findPartialById(ids[0]);
+                    const auto* b = project.findPartialById(ids[1]);
+                    if (a && b)
+                        canBridge = (a->endTime() <= b->startTime() ||
+                                     b->endTime() <= a->startTime());
+                }
+            }
+            else if (partialView.getToolMode() == PartialView::ToolMode::DirectSelect)
+            {
+                const auto& bpSel = partialView.getSelectedBreakpoints();
+                if (bpSel.size() == 2)
+                {
+                    auto it = bpSel.begin();
+                    const uint32_t idX = it->partialId; ++it;
+                    const uint32_t idY = it->partialId;
+                    if (idX != idY)
+                    {
+                        const auto* x = project.findPartialById(idX);
+                        const auto* y = project.findPartialById(idY);
+                        if (x && y)
+                            canBridge = (x->endTime() <= y->startTime() ||
+                                         y->endTime() <= x->startTime());
+                    }
+                }
+            }
+            result.setActive(canBridge);
+            break;
+        }
+        case CommandIDs::editCrossfadeOverlap:
+        {
+            result.setInfo("Crossfade Overlap", "Crossfade two overlapping partials into one", "Edit", 0);
+            result.addDefaultKeypress('j', juce::ModifierKeys::commandModifier
+                                          | juce::ModifierKeys::shiftModifier);
+            bool canCrossfade = false;
+            if (partialView.getToolMode() == PartialView::ToolMode::Selection)
+            {
+                const auto ids = project.getSelection().getSelectedIds();
+                if (ids.size() == 2)
+                {
+                    const auto* a = project.findPartialById(ids[0]);
+                    const auto* b = project.findPartialById(ids[1]);
+                    if (a && b)
+                        canCrossfade = (a->startTime() < b->endTime() &&
+                                        b->startTime() < a->endTime());
+                }
+            }
+            result.setActive(canCrossfade);
+            break;
+        }
 
         case CommandIDs::normalize:
             result.setInfo("Normalize", "Scale all unmuted partials so the peak output = 0 dBFS", "Edit", 0);
@@ -1275,8 +1419,10 @@ bool MainComponent::perform(const juce::ApplicationCommandTarget::InvocationInfo
         case CommandIDs::fileAnalyzeAudio: openFileAndAnalyze(); return true;
         case CommandIDs::fileSave:         saveProject();        return true;
         case CommandIDs::fileSaveAs:       saveProjectAs(nullptr); return true;
-        case CommandIDs::exportMidi:   exportMidi();         return true;
-        case CommandIDs::exportCsound: exportCsound();       return true;
+        case CommandIDs::exportMidi:        exportMidi();        return true;
+        case CommandIDs::exportMidiPackage: exportMidiPackage(); return true;
+        case CommandIDs::exportCsound:         exportCsound();         return true;
+        case CommandIDs::exportSuperCollider:  exportSuperCollider();  return true;
         case CommandIDs::exportSdif:   exportSdif();         return true;
         case CommandIDs::exportJson:   exportJson();         return true;
 
@@ -1308,8 +1454,10 @@ bool MainComponent::perform(const juce::ApplicationCommandTarget::InvocationInfo
             return true;
         }
 
-        case CommandIDs::normalize:      performNormalize();      return true;
-        case CommandIDs::scaleAmplitude: performScaleAmplitude(); return true;
+        case CommandIDs::normalize:            performNormalize();        return true;
+        case CommandIDs::scaleAmplitude:       performScaleAmplitude();   return true;
+        case CommandIDs::editBridgePartials:   performBridgePartials();   return true;
+        case CommandIDs::editCrossfadeOverlap: performCrossfadeOverlap(); return true;
 
         case CommandIDs::viewZoomIn:  partialView.zoomIn();   return true;
         case CommandIDs::viewZoomOut: partialView.zoomOut();  return true;
@@ -1326,6 +1474,124 @@ bool MainComponent::perform(const juce::ApplicationCommandTarget::InvocationInfo
 
         default: return false;
     }
+}
+
+// ── Join operations ───────────────────────────────────────────────────────────
+
+void MainComponent::performBridgePartials()
+{
+    const Partial* pA      = nullptr;
+    const Partial* pB      = nullptr;
+    size_t         bpIdxA  = 0;
+    size_t         bpIdxB  = 0;
+
+    if (partialView.getToolMode() == PartialView::ToolMode::Selection)
+    {
+        const auto ids = project.getSelection().getSelectedIds();
+        if (ids.size() != 2) return;
+        const auto* x = project.findPartialById(ids[0]);
+        const auto* y = project.findPartialById(ids[1]);
+        if (!x || !y) return;
+        if (x->endTime() <= y->startTime())      { pA = x; pB = y; }
+        else if (y->endTime() <= x->startTime()) { pA = y; pB = x; }
+        else return;
+        bpIdxA = pA->breakpoints.size() - 1;
+        bpIdxB = 0;
+    }
+    else  // DirectSelect
+    {
+        const auto& bpSel = partialView.getSelectedBreakpoints();
+        if (bpSel.size() != 2) return;
+        auto it = bpSel.begin();
+        const uint32_t idX = it->partialId; const size_t xiX = it->bpIndex; ++it;
+        const uint32_t idY = it->partialId; const size_t xiY = it->bpIndex;
+        if (idX == idY) return;
+        const auto* x = project.findPartialById(idX);
+        const auto* y = project.findPartialById(idY);
+        if (!x || !y) return;
+        if (x->endTime() > y->startTime() && y->endTime() > x->startTime()) return; // overlap
+        if (x->breakpoints[xiX].time <= y->breakpoints[xiY].time)
+            { pA = x; bpIdxA = xiX; pB = y; bpIdxB = xiY; }
+        else
+            { pA = y; bpIdxA = xiY; pB = x; bpIdxB = xiX; }
+    }
+
+    const Breakpoint& bpStart = pA->breakpoints[bpIdxA];
+    const Breakpoint& bpEnd   = pB->breakpoints[bpIdxB];
+    if (bpStart.time >= bpEnd.time) return;
+
+    std::vector<Breakpoint> mergedBps;
+    for (size_t i = 0; i <= bpIdxA; ++i)
+        mergedBps.push_back(pA->breakpoints[i]);
+
+    // Fill the gap at 5 ms intervals
+    if ((bpEnd.time - bpStart.time) > kJoinInterval * 1.5)
+        for (double t = bpStart.time + kJoinInterval;
+             t < bpEnd.time - kJoinInterval * 0.5;
+             t += kJoinInterval)
+            mergedBps.push_back(lerpBP(bpStart, bpEnd, t, bpStart.time, bpEnd.time));
+
+    for (size_t i = bpIdxB; i < pB->breakpoints.size(); ++i)
+        mergedBps.push_back(pB->breakpoints[i]);
+
+    project.getEditHistory().perform(
+        new JoinPartialsAction(project,
+                               snapshotOf(*pA), snapshotOf(*pB),
+                               PartialSnapshot{ pA->getId(), pA->getColour(), mergedBps }),
+        "Bridge Partials");
+
+    project.getSelection().clear();
+    partialView.clearBreakpointSelection();
+}
+
+void MainComponent::performCrossfadeOverlap()
+{
+    const auto ids = project.getSelection().getSelectedIds();
+    if (ids.size() != 2) return;
+    const auto* x = project.findPartialById(ids[0]);
+    const auto* y = project.findPartialById(ids[1]);
+    if (!x || !y) return;
+
+    // A starts first
+    const Partial* pA = (x->startTime() <= y->startTime()) ? x : y;
+    const Partial* pB = (pA == x) ? y : x;
+
+    const double overlapStart = pB->startTime();
+    const double overlapEnd   = pA->endTime();
+    if (overlapStart >= overlapEnd) return;
+
+    std::vector<Breakpoint> mergedBps;
+
+    for (const auto& bp : pA->breakpoints)
+        if (bp.time < overlapStart)
+            mergedBps.push_back(bp);
+
+    const double overlapLen = overlapEnd - overlapStart;
+    for (double t = overlapStart; t <= overlapEnd + kJoinInterval * 0.1; t += kJoinInterval)
+    {
+        const float      w   = static_cast<float>((t - overlapStart) / overlapLen);
+        const Breakpoint bA  = evaluateAt(*pA, t);
+        const Breakpoint bB  = evaluateAt(*pB, t);
+        mergedBps.push_back({ t,
+            bA.frequency + w * (bB.frequency - bA.frequency),
+            bA.amplitude + w * (bB.amplitude - bA.amplitude),
+            0.0f,
+            bA.bandwidth + w * (bB.bandwidth - bA.bandwidth) });
+    }
+
+    for (const auto& bp : pB->breakpoints)
+        if (bp.time > overlapEnd)
+            mergedBps.push_back(bp);
+
+    if (mergedBps.size() < 2) return;
+
+    project.getEditHistory().perform(
+        new JoinPartialsAction(project,
+                               snapshotOf(*pA), snapshotOf(*pB),
+                               PartialSnapshot{ pA->getId(), pA->getColour(), mergedBps }),
+        "Crossfade Overlap");
+
+    project.getSelection().clear();
 }
 
 // ── Amplitude operations ──────────────────────────────────────────────────────
@@ -1499,6 +1765,41 @@ void MainComponent::exportMidi()
         true);
 }
 
+void MainComponent::exportMidiPackage()
+{
+    auto exportData  = std::make_shared<std::vector<std::unique_ptr<Partial>>>(
+        filterMuted(project.getPartials()));
+    if (exportData->empty()) return;
+
+    auto sourceFile = std::make_shared<juce::File>(project.getSourceFile());
+
+    auto chooser = std::make_shared<juce::FileChooser>(
+        "Choose export folder", juce::File{});
+    chooser->launchAsync(
+        juce::FileBrowserComponent::openMode |
+        juce::FileBrowserComponent::canSelectDirectories,
+        [exportData, sourceFile, chooser](const juce::FileChooser& fc)
+        {
+            const auto results = fc.getResults();
+            if (results.isEmpty()) return;
+
+            MidiPackageExporter::Options opts;
+            const auto result = MidiPackageExporter::exportPackage(
+                *exportData, *sourceFile, results[0], opts);
+
+            if (!result.success)
+                juce::AlertWindow::showMessageBoxAsync(
+                    juce::MessageBoxIconType::WarningIcon,
+                    "Export Failed", result.errorMessage, "OK");
+            else
+                juce::AlertWindow::showMessageBoxAsync(
+                    juce::MessageBoxIconType::InfoIcon,
+                    "Export Complete",
+                    juce::String(result.filesWritten) +
+                        " MIDI files exported successfully.", "OK");
+        });
+}
+
 void MainComponent::exportCsound()
 {
     auto exportData = std::make_shared<std::vector<std::unique_ptr<Partial>>>(
@@ -1506,7 +1807,7 @@ void MainComponent::exportCsound()
     if (exportData->empty()) return;
 
     auto chooser = std::make_shared<juce::FileChooser>(
-        "Save Csound score", juce::File{}, "*.sco");
+        "Save Csound CSD file", juce::File{}, "*.csd");
     chooser->launchAsync(
         juce::FileBrowserComponent::saveMode |
         juce::FileBrowserComponent::canSelectFiles |
@@ -1518,7 +1819,30 @@ void MainComponent::exportCsound()
             if (!CsoundExporter::exportToFile(*exportData, opts, results[0]))
                 juce::AlertWindow::showMessageBoxAsync(
                     juce::MessageBoxIconType::WarningIcon,
-                    "Export Failed", "Could not write Csound score.", "OK");
+                    "Export Failed", "Could not write Csound CSD file.", "OK");
+        });
+}
+
+void MainComponent::exportSuperCollider()
+{
+    auto exportData = std::make_shared<std::vector<std::unique_ptr<Partial>>>(
+        filterMuted(project.getPartials()));
+    if (exportData->empty()) return;
+
+    auto chooser = std::make_shared<juce::FileChooser>(
+        "Save SuperCollider file", juce::File{}, "*.scd");
+    chooser->launchAsync(
+        juce::FileBrowserComponent::saveMode |
+        juce::FileBrowserComponent::canSelectFiles |
+        juce::FileBrowserComponent::warnAboutOverwriting,
+        [exportData, chooser](const juce::FileChooser& fc) {
+            const auto results = fc.getResults();
+            if (results.isEmpty()) return;
+            SuperColliderExporter::Options opts;
+            if (!SuperColliderExporter::exportToFile(*exportData, opts, results[0]))
+                juce::AlertWindow::showMessageBoxAsync(
+                    juce::MessageBoxIconType::WarningIcon,
+                    "Export Failed", "Could not write SuperCollider file.", "OK");
         });
 }
 

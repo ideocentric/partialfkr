@@ -2,6 +2,8 @@
 #include "UI/MainComponent.h"
 #include "UI/CommandIDs.h"
 #include "UI/MacWindowHelpers.h"
+#include "UI/AboutComponent.h"
+#include "UI/PartialFKRLookAndFeel.h"
 
 #include <JuceHeader.h>
 
@@ -13,6 +15,8 @@ public:
 
     void initialise(const juce::String& /*commandLineParameters*/) override
     {
+        juce::LookAndFeel::setDefaultLookAndFeel(&lookAndFeel);
+
         // Register app-level commands (fileNew) so the command manager knows about them.
         // MainComponent registers its own commands when it becomes the first target.
         commandManager.registerAllCommandsForTarget(this);
@@ -21,17 +25,58 @@ public:
         // Create the first window before setMacMainMenu so that when menuBarItemsChanged
         // fires during setMacMainMenu, activeComponent and command registrations are ready.
         createNewWindow();
+#if JUCE_MAC
+        {
+            juce::PopupMenu appleItems;
+            appleItems.addCommandItem(&commandManager, CommandIDs::appAbout);
+            juce::MenuBarModel::setMacMainMenu(&appMenu, &appleItems);
+        }
+#else
         juce::MenuBarModel::setMacMainMenu(&appMenu);
+#endif
     }
 
     void shutdown() override
     {
         juce::MenuBarModel::setMacMainMenu(nullptr);
         windows.clear();
+        juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
     }
 
-    void systemRequestedQuit() override { quit(); }
-    void anotherInstanceStarted(const juce::String& /*commandLine*/) override {}
+    void systemRequestedQuit() override
+    {
+        isQuitting = true;
+        tryQuit();
+    }
+
+    void anotherInstanceStarted(const juce::String& commandLine) override
+    {
+        // On macOS, JUCE routes application:openFile: here with a (possibly quoted) path.
+        // Strip quotes and check for a .pfkr file.
+        const juce::String path = commandLine.trim().unquoted();
+        const juce::File   file(path);
+
+        if (!file.existsAsFile() || !file.hasFileExtension("pfkr"))
+            return;
+
+        // Use the frontmost window if it has no partials loaded, otherwise open a new one.
+        MainWindow* target = nullptr;
+        if (auto* w = getActiveMainWindow())
+        {
+            if (auto* mc = dynamic_cast<MainComponent*>(w->getContentComponent()))
+                if (!mc->hasPartials())
+                    target = w;
+        }
+
+        if (target == nullptr)
+        {
+            createNewWindow();
+            target = windows.back().get();
+        }
+
+        if (auto* mc = dynamic_cast<MainComponent*>(target->getContentComponent()))
+            mc->loadProject(file);
+    }
 
     // ── Application-level command target (fileNew only) ───────────────────────
     // JUCEApplication already inherits ApplicationCommandTarget; implement here.
@@ -45,6 +90,8 @@ public:
         commands.add(CommandIDs::windowMinimize);
         commands.add(CommandIDs::windowZoom);
         commands.add(CommandIDs::windowBringAllToFront);
+        commands.add(CommandIDs::appAbout);
+        commands.add(CommandIDs::appHelp);
     }
 
     void getCommandInfo(juce::CommandID commandID,
@@ -78,6 +125,14 @@ public:
             result.setInfo("Bring All to Front", "Bring all windows to the front", "Window", 0);
             result.setActive(hasWindow);
         }
+        else if (commandID == CommandIDs::appAbout)
+        {
+            result.setInfo("About PartialFKR", "Show application information", "Application", 0);
+        }
+        else if (commandID == CommandIDs::appHelp)
+        {
+            result.setInfo("PartialFKR Help", "Open the help documentation", "Application", 0);
+        }
     }
 
     bool perform(const juce::ApplicationCommandTarget::InvocationInfo& info) override
@@ -107,6 +162,16 @@ public:
         if (info.commandID == CommandIDs::windowBringAllToFront)
         {
             MacWindowHelpers::bringAllToFront();
+            return true;
+        }
+        if (info.commandID == CommandIDs::appAbout)
+        {
+            AboutComponent::show(getActiveMainWindow());
+            return true;
+        }
+        if (info.commandID == CommandIDs::appHelp)
+        {
+            juce::URL("https://github.com/ideocentric/partialfkr").launchInDefaultBrowser();
             return true;
         }
         return false;
@@ -141,7 +206,7 @@ public:
 
         explicit AppMenuBarModel(juce::ApplicationCommandManager& c) : cm(c) {}
 
-        juce::StringArray getMenuBarNames() override { return { "File", "Edit", "View", "Transport", "Window" }; }
+        juce::StringArray getMenuBarNames() override { return { "File", "Edit", "View", "Transport", "Window", "Help" }; }
 
         juce::PopupMenu getMenuForIndex(int index,
                                         const juce::String& /*name*/) override
@@ -189,7 +254,10 @@ public:
 
                 juce::PopupMenu exportSub;
                 exportSub.addCommandItem(&cm, CommandIDs::exportMidi);
+                exportSub.addCommandItem(&cm, CommandIDs::exportMidiPackage);
+                exportSub.addSeparator();
                 exportSub.addCommandItem(&cm, CommandIDs::exportCsound);
+                exportSub.addCommandItem(&cm, CommandIDs::exportSuperCollider);
                 exportSub.addCommandItem(&cm, CommandIDs::exportSdif);
                 exportSub.addCommandItem(&cm, CommandIDs::exportJson);
                 file.addSubMenu("Export", exportSub);
@@ -206,6 +274,17 @@ public:
                 view.addSeparator();
                 view.addCommandItem(&cm, CommandIDs::viewTogglePanel);
                 return view;
+            }
+
+            if (index == 5)  // Help
+            {
+                juce::PopupMenu help;
+                help.addCommandItem(&cm, CommandIDs::appHelp);
+#if !JUCE_MAC
+                help.addSeparator();
+                help.addCommandItem(&cm, CommandIDs::appAbout);
+#endif
+                return help;
             }
 
             if (index == 4)  // Window
@@ -241,6 +320,9 @@ public:
             addItem(edit, juce::StandardApplicationCommandIDs::selectAll,   hasParts);
             addItem(edit, juce::StandardApplicationCommandIDs::deselectAll, hasSel);
             addItem(edit, CommandIDs::invertSelection,                       hasParts);
+            edit.addSeparator();
+            edit.addCommandItem(&cm, CommandIDs::editBridgePartials);
+            edit.addCommandItem(&cm, CommandIDs::editCrossfadeOverlap);
             edit.addSeparator();
             addItem(edit, CommandIDs::normalize,      hasParts && notNorm);
             addItem(edit, CommandIDs::scaleAmplitude, hasParts && notNorm);
@@ -358,7 +440,8 @@ public:
                             appPtr->windowClosed(wPtr);
                         });
                     }
-                    // result == 3 or 0 → Cancel: do nothing
+                    // result == 3 or 0 → Cancel: abort any in-progress quit
+                    else { appPtr->cancelQuit(); }
                 });
         }
 
@@ -422,6 +505,11 @@ public:
         {
             quit();
         }
+        else if (isQuitting)
+        {
+            // Continue closing remaining dirty windows as part of a quit sequence.
+            tryQuit();
+        }
         else
         {
             // Bring another window to front — triggers activeWindowStatusChanged
@@ -430,10 +518,28 @@ public:
         }
     }
 
+    void tryQuit()
+    {
+        for (auto& w : windows)
+        {
+            auto* mc = dynamic_cast<MainComponent*>(w->getContentComponent());
+            if (mc && mc->isDirty())
+            {
+                w->requestClose();  // shows Save / Don't Save / Cancel dialog
+                return;
+            }
+        }
+        quit();  // no dirty windows remain
+    }
+
+    void cancelQuit() { isQuitting = false; }
+
 private:
+    PartialFKRLookAndFeel lookAndFeel;
     juce::ApplicationCommandManager commandManager;
     AppMenuBarModel appMenu{commandManager};
     std::vector<std::unique_ptr<MainWindow>> windows;
+    bool isQuitting = false;
 };
 
 START_JUCE_APPLICATION(PartialFKRApplication)

@@ -75,6 +75,9 @@ public:
     /** Fired after a tool mode change (V/A keys or setToolMode call). Argument: true = DirectSelect. */
     std::function<void(bool)> onToolModeChanged;
 
+    /** Fired whenever the breakpoint selection changes (insert, clear, or tool mode switch). */
+    std::function<void()> onBreakpointSelectionChanged;
+
     void setToolMode(ToolMode mode);
 
     /** Called by MainComponent to delete the currently selected breakpoints. */
@@ -82,7 +85,7 @@ public:
     {
         return selectedBreakpoints;
     }
-    void clearBreakpointSelection() { selectedBreakpoints.clear(); repaint(); }
+    void clearBreakpointSelection();
 
     // ── Edit callbacks (wired by MainComponent) ───────────────────────────────
     std::function<void()> onCut;

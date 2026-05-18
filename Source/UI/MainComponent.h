@@ -4,8 +4,10 @@
 #include "Analysis/Analyzer.h"
 #include "Model/AmplitudeOps.h"
 #include "Export/CsoundExporter.h"
+#include "Export/SuperColliderExporter.h"
 #include "Export/JsonExporter.h"
 #include "Export/MidiExporter.h"
+#include "Export/MidiPackageExporter.h"
 #include "Export/SdifExporter.h"
 #include "Model/Project.h"
 #include "Model/ReductionController.h"
@@ -138,18 +140,25 @@ private:
     juce::File            currentFile;  ///< the .pfkr file this project is saved to (empty = unsaved)
     std::vector<uint32_t> scrubSavedSoloIds;  ///< solo state saved at scrub start, restored on end
 
+    // ── Join operations ───────────────────────────────────────────────────────
+    void performBridgePartials();
+    void performCrossfadeOverlap();
+
     // ── Export ────────────────────────────────────────────────────────────────
     void exportMidi();
+    void exportMidiPackage();
     void exportCsound();
+    void exportSuperCollider();
     void exportSdif();
     void exportJson();
 
-    /** Clipboard: breakpoints + colour per copied partial. */
+    /** Clipboard: breakpoints + colour per copied partial.
+     *  Static so copy in one window is visible to all other open windows. */
     struct PartialClip {
         std::vector<Breakpoint> breakpoints;
         juce::Colour            colour;
     };
-    std::vector<PartialClip> clipboard;
+    static std::vector<PartialClip> clipboard;
 
     // Peak levels written by the audio thread, read by LevelMeter's timer.
     std::atomic<float> levelL{0.0f};

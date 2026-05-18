@@ -8,37 +8,27 @@
 #include <vector>
 
 /**
- * Exports the partial set as a Csound score + optional orchestra.
+ * Exports the partial set as a self-contained Csound CSD file.
  *
- * Mode A: GEN02 f-tables (one per partial, referenced by i-statements).
- * Mode B: Inline linseg p-fields (suitable for sparse breakpoint sets).
+ * The CSD uses one GEN07 function table pair (frequency + amplitude) per
+ * partial, read with a phasor that ramps 0→1 over the note duration.
+ * This exactly reproduces the linear-interpolation-between-breakpoints model
+ * used by PartialFKR's synthesizer.
  *
- * See docs/DESIGN.md § 7 for full format specification.
+ * Orchestra: poscil driven by tablei/phasor, stereo (-o dac by default).
+ * Score:     one i-statement per partial at its analysis onset time.
  */
 class CsoundExporter {
 public:
-    enum class Mode { TableBased, Inline };
-
     struct Options {
-        Mode   mode           = Mode::TableBased;
-        int    autoModeThreshold = 15;  ///< if avg breakpoints/partial > this, use TableBased
-        bool   writeOrchestra = true;   ///< emit a template .orc alongside the .sco
-        double startTableIdx  = 1001;
+        int    sampleRate = 48000;
+        int    ksmps      = -1;      ///< -1 = auto: round(sampleRate * kInterval)
+        double kInterval  = 0.005;   ///< control period in seconds (5 ms = Loris hop)
     };
 
+    /** Write a .csd file. Returns true on success. */
     [[nodiscard]] static bool exportToFile(
         const std::vector<std::unique_ptr<Partial>>& partials,
         const Options&                               options,
         const juce::File&                            outputFile);
-
-private:
-    static bool exportTableBased(const std::vector<std::unique_ptr<Partial>>& partials,
-                                 const Options& options,
-                                 juce::OutputStream& out);
-
-    static bool exportInline(const std::vector<std::unique_ptr<Partial>>& partials,
-                             const Options& options,
-                             juce::OutputStream& out);
-
-    static void writeOrchestra(juce::OutputStream& out);
 };
