@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+        Hardened Runtime entitlements for PartialFKR.
+        PartialFKR is a statically-linked audio analysis app; no JIT,
+        no plugin loading, no network access, no microphone — so the
+        baseline hardened runtime requires no extra entitlements.
+
+        Add com.apple.security.cs.allow-jit here if notarization fails
+        with an "unsafe code" rejection (rare for pure JUCE/Loris builds).
+    -->
+</dict>
+</plist>
