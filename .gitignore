@@ -74,6 +74,16 @@ third_party/Catch2/
 
 # Loris IS committed (vendored) — do not add third_party/loris/ here
 
+# ── Code signing / distribution ───────────────────────────────────────────────
+# .env holds notarization secrets — NEVER commit (copy from .env.example)
+.env
+# App Store Connect API private key files
+*.p8
+# Distribution artifacts
+*.dmg
+build-release/
+PartialFKR-staging.zip
+
 
 samples
 .claude

@@ -103,6 +103,30 @@ if(APPLE)
             "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icons/PartialFKR.icns"
             "$<TARGET_BUNDLE_DIR:PartialFKR>/Contents/Resources/Icon.icns"
     )
+
+    # ── Code signing (opt-in: cmake -DPFKR_CODESIGN=ON) ──────────────────────
+    # Runs after plist and icon steps so the signature covers the final bundle.
+    option(PFKR_CODESIGN "Sign the app bundle with Developer ID (requires certificate in keychain)" OFF)
+    if(PFKR_CODESIGN)
+        set(PFKR_SIGN_IDENTITY
+            "Developer ID Application: Matthew Comeione (3722A5T4AG)"
+            CACHE STRING "Codesigning identity as shown in Keychain Access")
+        set(PFKR_ENTITLEMENTS
+            "${CMAKE_CURRENT_SOURCE_DIR}/Resources/MacOS/PartialFKR.entitlements")
+
+        add_custom_command(TARGET PartialFKR POST_BUILD
+            COMMENT "Code-signing PartialFKR.app"
+            COMMAND codesign
+                --force
+                --deep
+                --verify
+                --timestamp
+                --options=runtime
+                --entitlements "${PFKR_ENTITLEMENTS}"
+                --sign "${PFKR_SIGN_IDENTITY}"
+                "$<TARGET_BUNDLE_DIR:PartialFKR>"
+        )
+    endif()
 endif()
 
 target_sources(PartialFKR PRIVATE
