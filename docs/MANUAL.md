@@ -6,18 +6,18 @@
 
 ## Table of Contents
 
-1. [Introduction](#1-introduction)
-2. [Getting Started](#2-getting-started)
-3. [Loading and Saving](#3-loading-and-saving)
-4. [The Partial Canvas](#4-the-partial-canvas)
-5. [Playback](#5-playback)
-6. [Selection](#6-selection)
-7. [Editing](#7-editing)
-8. [Reduction Filters](#8-reduction-filters)
-9. [Gap Operations](#9-gap-operations)
-10. [The Inspector](#10-the-inspector)
-11. [Export](#11-export)
-12. [Keyboard Shortcuts](#12-keyboard-shortcuts)
+1. [Introduction](#introduction)
+2. [Getting Started](#getting-started)
+3. [Loading and Saving](#loading-and-saving)
+4. [The Partial Canvas](#the-partial-canvas)
+5. [Playback](#playback)
+6. [Selection](#selection)
+7. [Editing](#editing)
+8. [Reduction Filters](#reduction-filters)
+9. [Gap Operations](#gap-operations)
+10. [The Inspector](#the-inspector)
+11. [Export](#export)
+12. [Keyboard Shortcuts](#keyboard-shortcuts)
 
 ---
 
