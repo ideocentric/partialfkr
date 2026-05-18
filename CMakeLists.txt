@@ -125,6 +125,7 @@ if(APPLE)
                 --entitlements "${PFKR_ENTITLEMENTS}"
                 --sign "${PFKR_SIGN_IDENTITY}"
                 "$<TARGET_BUNDLE_DIR:PartialFKR>"
+            VERBATIM
         )
     endif()
 endif()
