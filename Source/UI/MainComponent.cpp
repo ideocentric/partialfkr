@@ -225,6 +225,49 @@ struct AddPartialsAction : public juce::UndoableAction {
     }
 };
 
+/**
+ * Undoable fade in / fade out applied to a set of partials.
+ * Stores before/after snapshots and uses replacePartials for in-place update.
+ */
+struct FadeAction : public juce::UndoableAction {
+    Project&                     project;
+    std::vector<PartialSnapshot> before;
+    std::vector<PartialSnapshot> after;
+
+    FadeAction(Project& p,
+               std::vector<PartialSnapshot> b,
+               std::vector<PartialSnapshot> a)
+        : project(p), before(std::move(b)), after(std::move(a)) {}
+
+    bool perform() override
+    {
+        std::vector<std::unique_ptr<Partial>> replacements;
+        replacements.reserve(after.size());
+        for (const auto& s : after)
+            replacements.push_back(restoreFrom(s));
+        project.replacePartials(std::move(replacements));
+        return true;
+    }
+
+    bool undo() override
+    {
+        std::vector<std::unique_ptr<Partial>> replacements;
+        replacements.reserve(before.size());
+        for (const auto& s : before)
+            replacements.push_back(restoreFrom(s));
+        project.replacePartials(std::move(replacements));
+        return true;
+    }
+
+    int getSizeInUnits() override
+    {
+        int n = 0;
+        for (const auto& s : before)
+            n += static_cast<int>(s.breakpoints.size()) * static_cast<int>(sizeof(Breakpoint));
+        return std::max(1, n * 2);  // before + after
+    }
+};
+
 /** Undoable join of two partials into one (shared by bridge and crossfade). */
 struct JoinPartialsAction : public juce::UndoableAction {
     Project&         project;
@@ -290,6 +333,73 @@ static Breakpoint evaluateAt(const Partial& p, double t) noexcept
         if (t >= bps[i].time && t <= bps[i + 1].time)
             return lerpBP(bps[i], bps[i + 1], t, bps[i].time, bps[i + 1].time);
     { auto bp = bps.back(); bp.time = t; bp.phase = 0.0f; return bp; }
+}
+
+/**
+ * Returns a new breakpoint list with a linear amplitude fade applied over [inPoint, outPoint].
+ * fadeIn=true  → multiplier ramps 0→1 (silence at inPoint, full amplitude at outPoint).
+ * fadeIn=false → multiplier ramps 1→0 (full amplitude at inPoint, silence at outPoint).
+ *
+ * Boundary breakpoints are synthesised at inPoint and outPoint (via evaluateAt) whenever the
+ * partial spans those times, so the fade is anchored precisely at the marker positions and
+ * does not bleed into the pre- or post-range portions of the partial.
+ *
+ * Partials with no overlap with [inPoint, outPoint] are returned unchanged.
+ */
+static std::vector<Breakpoint> applyFadeBreakpoints(
+    const Partial& partial, double inPoint, double outPoint, bool fadeIn)
+{
+    const auto& orig = partial.breakpoints;
+    if (orig.empty()) return {};
+
+    const double partialStart = orig.front().time;
+    const double partialEnd   = orig.back().time;
+
+    if (partialEnd <= inPoint || partialStart >= outPoint)
+        return orig;
+
+    const double rangeLen = outPoint - inPoint;
+    std::vector<Breakpoint> result;
+    result.reserve(orig.size() + 2);
+
+    // Pre-range breakpoints — unchanged
+    for (const auto& bp : orig)
+        if (bp.time < inPoint)
+            result.push_back(bp);
+
+    // Boundary at inPoint (only if partial spans inPoint from the left)
+    if (partialStart < inPoint)
+    {
+        auto bp = evaluateAt(partial, inPoint);
+        bp.amplitude *= fadeIn ? 0.0f : 1.0f;
+        result.push_back(bp);
+    }
+
+    // In-range breakpoints — amplitude scaled by the fade weight at each time
+    for (const auto& bp : orig)
+    {
+        if (bp.time < inPoint || bp.time > outPoint) continue;
+        float w = static_cast<float>((bp.time - inPoint) / rangeLen);
+        if (!fadeIn) w = 1.0f - w;
+        auto scaled = bp;
+        scaled.amplitude *= w;
+        result.push_back(scaled);
+    }
+
+    // Boundary at outPoint (only if partial spans outPoint from the right)
+    if (partialEnd > outPoint)
+    {
+        auto bp = evaluateAt(partial, outPoint);
+        bp.amplitude *= fadeIn ? 1.0f : 0.0f;
+        result.push_back(bp);
+    }
+
+    // Post-range breakpoints — unchanged
+    for (const auto& bp : orig)
+        if (bp.time > outPoint)
+            result.push_back(bp);
+
+    return result;
 }
 
 MainComponent::MainComponent()
@@ -453,43 +563,6 @@ bool MainComponent::keyPressed(const juce::KeyPress& key)
     if (key == juce::KeyPress::spaceKey)
     {
         handlePlayPauseToggle();
-        return true;
-    }
-
-    // I — set in point to current playhead position
-    if (key == juce::KeyPress('i', 0, 0))
-    {
-        updateMarkers(transportBar.getPlayheadPosition(), outPoint);
-        return true;
-    }
-
-    // O — set out point to current playhead position
-    if (key == juce::KeyPress('o', 0, 0))
-    {
-        updateMarkers(inPoint, transportBar.getPlayheadPosition());
-        return true;
-    }
-
-    // Ctrl+S — set in/out from selected partial bounds
-    if (key == juce::KeyPress('s', juce::ModifierKeys::ctrlModifier, 0))
-    {
-        const auto& sel = project.getSelection();
-        if (!sel.isEmpty())
-        {
-            double earliest = std::numeric_limits<double>::max();
-            double latest   = std::numeric_limits<double>::lowest();
-            for (const auto& p : project.getPartials())
-            {
-                if (!sel.isSelected(p->getId())) continue;
-                if (!p->breakpoints.empty())
-                {
-                    earliest = std::min(earliest, p->breakpoints.front().time);
-                    latest   = std::max(latest,   p->breakpoints.back().time);
-                }
-            }
-            if (earliest < std::numeric_limits<double>::max())
-                updateMarkers(earliest, latest);
-        }
         return true;
     }
 
@@ -1184,6 +1257,8 @@ void MainComponent::getAllCommands(juce::Array<juce::CommandID>& commands)
     commands.add(CommandIDs::invertSelection);
     commands.add(CommandIDs::normalize);
     commands.add(CommandIDs::scaleAmplitude);
+    commands.add(CommandIDs::editFadeIn);
+    commands.add(CommandIDs::editFadeOut);
     commands.add(CommandIDs::editBridgePartials);
     commands.add(CommandIDs::editCrossfadeOverlap);
     commands.add(CommandIDs::editStretch);
@@ -1194,6 +1269,9 @@ void MainComponent::getAllCommands(juce::Array<juce::CommandID>& commands)
     commands.add(CommandIDs::transportPlayPause);
     commands.add(CommandIDs::transportStop);
     commands.add(CommandIDs::transportLoop);
+    commands.add(CommandIDs::transportSetInPoint);
+    commands.add(CommandIDs::transportSetOutPoint);
+    commands.add(CommandIDs::transportSetInOutFromSel);
 }
 
 void MainComponent::getCommandInfo(juce::CommandID commandID,
@@ -1377,12 +1455,25 @@ void MainComponent::getCommandInfo(juce::CommandID commandID,
 
         case CommandIDs::normalize:
             result.setInfo("Normalize", "Scale all unmuted partials so the peak output = 0 dBFS", "Edit", 0);
+            result.addDefaultKeypress('n', juce::ModifierKeys::altModifier);
             result.setActive(hasPartials && !isNormalizing);
             break;
 
         case CommandIDs::scaleAmplitude:
             result.setInfo("Scale Amplitude...", "Multiply partial amplitudes by a dB offset or linear factor", "Edit", 0);
             result.setActive(hasPartials && !isNormalizing);
+            break;
+
+        case CommandIDs::editFadeIn:
+            result.setInfo("Fade In", "Ramp amplitude from 0 at the in-point to full at the out-point", "Edit", 0);
+            result.addDefaultKeypress('/', juce::ModifierKeys::altModifier);
+            result.setActive(hasPartials && hasValidFadeRange());
+            break;
+
+        case CommandIDs::editFadeOut:
+            result.setInfo("Fade Out", "Ramp amplitude from full at the in-point to 0 at the out-point", "Edit", 0);
+            result.addDefaultKeypress('\\', juce::ModifierKeys::altModifier);
+            result.setActive(hasPartials && hasValidFadeRange());
             break;
 
         case CommandIDs::viewZoomIn:
@@ -1426,6 +1517,24 @@ void MainComponent::getCommandInfo(juce::CommandID commandID,
             result.setInfo("Loop", "Toggle looped playback", "Transport", 0);
             result.setTicked(transportBar.isLoopEnabled());
             result.setActive(true);
+            break;
+
+        case CommandIDs::transportSetInPoint:
+            result.setInfo("Set In Point", "Set the in-point to the current playhead position", "Transport", 0);
+            result.addDefaultKeypress('i', juce::ModifierKeys::altModifier);
+            result.setActive(hasPartials);
+            break;
+
+        case CommandIDs::transportSetOutPoint:
+            result.setInfo("Set Out Point", "Set the out-point to the current playhead position", "Transport", 0);
+            result.addDefaultKeypress('o', juce::ModifierKeys::altModifier);
+            result.setActive(hasPartials);
+            break;
+
+        case CommandIDs::transportSetInOutFromSel:
+            result.setInfo("Set In/Out from Selection", "Set in/out points to span the selected partials", "Transport", 0);
+            result.addDefaultKeypress('s', juce::ModifierKeys::altModifier);
+            result.setActive(hasSelection);
             break;
 
         default: break;
@@ -1477,6 +1586,8 @@ bool MainComponent::perform(const juce::ApplicationCommandTarget::InvocationInfo
 
         case CommandIDs::normalize:            performNormalize();        return true;
         case CommandIDs::scaleAmplitude:       performScaleAmplitude();   return true;
+        case CommandIDs::editFadeIn:           performFade(true);         return true;
+        case CommandIDs::editFadeOut:          performFade(false);        return true;
         case CommandIDs::editBridgePartials:   performBridgePartials();   return true;
         case CommandIDs::editCrossfadeOverlap: performCrossfadeOverlap(); return true;
         case CommandIDs::editStretch:          editStretch();             return true;
@@ -1493,6 +1604,36 @@ bool MainComponent::perform(const juce::ApplicationCommandTarget::InvocationInfo
         case CommandIDs::transportPlayPause: handlePlayPauseToggle();                                    return true;
         case CommandIDs::transportStop:      handleStop();                                               return true;
         case CommandIDs::transportLoop:      transportBar.setLoopEnabled(!transportBar.isLoopEnabled()); return true;
+
+        case CommandIDs::transportSetInPoint:
+            updateMarkers(transportBar.getPlayheadPosition(), outPoint);
+            return true;
+
+        case CommandIDs::transportSetOutPoint:
+            updateMarkers(inPoint, transportBar.getPlayheadPosition());
+            return true;
+
+        case CommandIDs::transportSetInOutFromSel:
+        {
+            const auto& sel = project.getSelection();
+            if (!sel.isEmpty())
+            {
+                double earliest = std::numeric_limits<double>::max();
+                double latest   = std::numeric_limits<double>::lowest();
+                for (const auto& p : project.getPartials())
+                {
+                    if (!sel.isSelected(p->getId())) continue;
+                    if (!p->breakpoints.empty())
+                    {
+                        earliest = std::min(earliest, p->breakpoints.front().time);
+                        latest   = std::max(latest,   p->breakpoints.back().time);
+                    }
+                }
+                if (earliest < std::numeric_limits<double>::max())
+                    updateMarkers(earliest, latest);
+            }
+            return true;
+        }
 
         default: return false;
     }
@@ -1614,6 +1755,45 @@ void MainComponent::performCrossfadeOverlap()
         "Crossfade Overlap");
 
     project.getSelection().clear();
+}
+
+// ── Fade operations ───────────────────────────────────────────────────────────
+
+void MainComponent::performFade(bool fadeIn)
+{
+    if (!hasValidFadeRange()) return;
+
+    const auto& allPartials = project.getPartials();
+    if (allPartials.empty()) return;
+
+    // Determine scope: selected partials if any are selected, otherwise all unmuted
+    const auto& sel = project.getSelection();
+    const bool  useSelection = !sel.isEmpty();
+
+    std::vector<PartialSnapshot> before, after;
+
+    for (const auto& partial : allPartials)
+    {
+        if (useSelection && !sel.isSelected(partial->getId())) continue;
+        if (!useSelection && partial->muted.load(std::memory_order_relaxed)) continue;
+
+        // Skip partials with no overlap with the fade range
+        if (partial->breakpoints.empty()) continue;
+        const double pStart = partial->breakpoints.front().time;
+        const double pEnd   = partial->breakpoints.back().time;
+        if (pEnd <= inPoint || pStart >= outPoint) continue;
+
+        auto newBps = applyFadeBreakpoints(*partial, inPoint, outPoint, fadeIn);
+
+        before.push_back(snapshotOf(*partial));
+        after.push_back({ partial->getId(), partial->getColour(), std::move(newBps) });
+    }
+
+    if (before.empty()) return;
+
+    project.getEditHistory().perform(
+        new FadeAction(project, std::move(before), std::move(after)),
+        fadeIn ? "Fade In" : "Fade Out");
 }
 
 // ── Amplitude operations ──────────────────────────────────────────────────────

@@ -253,6 +253,7 @@ public:
             const bool doRedo     = activeComponent != nullptr && activeComponent->canRedo();
             const bool noAudio    = activeComponent == nullptr || !activeComponent->hasSourceAudio();
             const bool notNorm    = activeComponent == nullptr || !activeComponent->getIsNormalizing();
+            const bool hasFadeRange = activeComponent != nullptr && activeComponent->hasValidFadeRange();
             const bool canSave    = hasParts || (activeComponent != nullptr
                                                  && activeComponent->getCurrentFile().existsAsFile());
 
@@ -310,8 +311,10 @@ public:
                 juce::PopupMenu window;
                 window.addCommandItem(&cm, CommandIDs::windowMinimize);
                 window.addCommandItem(&cm, CommandIDs::windowZoom);
+#if JUCE_MAC
                 window.addSeparator();
                 window.addCommandItem(&cm, CommandIDs::windowBringAllToFront);
+#endif
                 return window;
             }
 
@@ -322,6 +325,10 @@ public:
                 transport.addCommandItem(&cm, CommandIDs::transportStop);
                 transport.addSeparator();
                 transport.addCommandItem(&cm, CommandIDs::transportLoop);
+                transport.addSeparator();
+                transport.addCommandItem(&cm, CommandIDs::transportSetInPoint);
+                transport.addCommandItem(&cm, CommandIDs::transportSetOutPoint);
+                transport.addCommandItem(&cm, CommandIDs::transportSetInOutFromSel);
                 return transport;
             }
 
@@ -346,6 +353,8 @@ public:
             edit.addSeparator();
             addItem(edit, CommandIDs::normalize,      hasParts && notNorm);
             addItem(edit, CommandIDs::scaleAmplitude, hasParts && notNorm);
+            addItem(edit, CommandIDs::editFadeIn,     hasParts && notNorm && hasFadeRange);
+            addItem(edit, CommandIDs::editFadeOut,    hasParts && notNorm && hasFadeRange);
             return edit;
         }
 

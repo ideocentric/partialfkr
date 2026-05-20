@@ -84,17 +84,27 @@ xcrun stapler validate "${APP_PATH}"
 echo "[5/5] Creating DMG..."
 rm -f "${DMG_NAME}"
 
+if ! command -v create-dmg &>/dev/null; then
+    echo "ERROR: create-dmg not found. Install with: brew install create-dmg"
+    exit 1
+fi
+
 # Temporary staging folder so the DMG contains only the .app
 STAGING_DIR=$(mktemp -d)
 cp -R "${APP_PATH}" "${STAGING_DIR}/"
-ln -s /Applications "${STAGING_DIR}/Applications"
 
-hdiutil create \
-    -volname "PartialFKR ${VERSION}" \
-    -srcfolder "${STAGING_DIR}" \
-    -ov \
-    -format UDZO \
-    "${DMG_NAME}"
+create-dmg \
+    --volname "PartialFKR ${VERSION}" \
+    --background "${REPO_ROOT}/Resources/dmg-background.png" \
+    --window-pos 200 120 \
+    --window-size 631 390 \
+    --icon-size 100 \
+    --icon "PartialFKR.app" 175 135 \
+    --hide-extension "PartialFKR.app" \
+    --app-drop-link 455 135 \
+    --eula "${REPO_ROOT}/Resources/license.rtf" \
+    "${DMG_NAME}" \
+    "${STAGING_DIR}/"
 
 rm -rf "${STAGING_DIR}"
 

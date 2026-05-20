@@ -145,9 +145,7 @@ target_sources(PartialFKR PRIVATE
     Source/UI/LevelMeter.cpp
     Source/UI/AboutComponent.cpp
     Source/UI/MacProxyIcon.cpp
-    Source/UI/MacProxyIcon.mm
     Source/UI/MacWindowHelpers.cpp
-    Source/UI/MacWindowHelpers.mm
     Source/UI/MainComponent.cpp
     Source/UI/PartialView.cpp
     Source/UI/ReductionPanel.cpp
@@ -160,6 +158,13 @@ target_sources(PartialFKR PRIVATE
     Source/Export/SdifExporter.cpp
     Source/Export/JsonExporter.cpp
 )
+
+if(APPLE)
+    target_sources(PartialFKR PRIVATE
+        Source/UI/MacProxyIcon.mm
+        Source/UI/MacWindowHelpers.mm
+    )
+endif()
 
 target_include_directories(PartialFKR PRIVATE Source)
 

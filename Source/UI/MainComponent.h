@@ -88,12 +88,13 @@ public:
     std::function<void()> onCloseRequested;
 
     // State queries used by AppMenuBarModel to build the Edit menu
-    [[nodiscard]] bool hasPartials()    const noexcept { return !project.getPartials().empty(); }
-    [[nodiscard]] bool hasSelection()   const noexcept { return !project.getSelection().isEmpty(); }
-    [[nodiscard]] bool hasClipboard()   const noexcept { return !clipboard.empty(); }
-    [[nodiscard]] bool canUndo()        noexcept { return project.getEditHistory().canUndo(); }
-    [[nodiscard]] bool canRedo()        noexcept { return project.getEditHistory().canRedo(); }
+    [[nodiscard]] bool hasPartials()      const noexcept { return !project.getPartials().empty(); }
+    [[nodiscard]] bool hasSelection()     const noexcept { return !project.getSelection().isEmpty(); }
+    [[nodiscard]] bool hasClipboard()     const noexcept { return !clipboard.empty(); }
+    [[nodiscard]] bool canUndo()          noexcept { return project.getEditHistory().canUndo(); }
+    [[nodiscard]] bool canRedo()          noexcept { return project.getEditHistory().canRedo(); }
     [[nodiscard]] bool getIsNormalizing() const noexcept { return isNormalizing; }
+    [[nodiscard]] bool hasValidFadeRange() const noexcept { return outPoint >= 0.0 && outPoint > inPoint; }
 
 private:
     void setWindowTitle(const juce::String& title);
@@ -143,6 +144,7 @@ private:
     // ── Join operations ───────────────────────────────────────────────────────
     void performBridgePartials();
     void performCrossfadeOverlap();
+    void performFade(bool fadeIn);
 
     // ── Export ────────────────────────────────────────────────────────────────
     void exportMidi();

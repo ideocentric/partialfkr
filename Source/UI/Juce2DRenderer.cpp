@@ -135,9 +135,8 @@ void Juce2DRenderer::drawBreakpoints(const RenderState& state, float partialH)
 
 void Juce2DRenderer::drawPartials(const RenderState& state, float partialH)
 {
-    const float  w         = static_cast<float>(state.canvasWidth);
-    const double timeRange = state.viewTimeEnd - state.viewTimeStart;
-    const float  freqRange = state.viewFreqHigh - state.viewFreqLow;
+    const float w         = static_cast<float>(state.canvasWidth);
+    const float freqRange = state.viewFreqHigh - state.viewFreqLow;
 
     for (const auto& partial : *state.partials)
     {
@@ -148,38 +147,50 @@ void Juce2DRenderer::drawPartials(const RenderState& state, float partialH)
         if (bps.size() < 2)
             continue;
 
-        const bool  selected = state.selection && state.selection->isSelected(partial->getId());
-        const float norm     = ampToNorm(partial->peakAmplitude());
-
-        juce::Colour colour;
-        float        weight;
+        const bool selected = state.selection && state.selection->isSelected(partial->getId());
 
         if (selected)
         {
-            colour = juce::Colours::white;
-            weight = 1.5f;
+            // Selected: uniform white path — amplitude variation is not shown while selected
+            // so the selection highlight reads cleanly.
+            juce::Path path;
+            bool started = false;
+            for (const auto& bp : bps)
+            {
+                const float x = timeToX(bp.time, state, w);
+                const float y = (1.0f - (bp.frequency - state.viewFreqLow) / freqRange) * partialH;
+                if (x < -2.0f || x > w + 2.0f) { started = false; continue; }
+                if (!started) { path.startNewSubPath(x, y); started = true; }
+                else          path.lineTo(x, y);
+            }
+            graphics->setColour(juce::Colours::white);
+            graphics->strokePath(path, juce::PathStrokeType(1.5f));
         }
         else
         {
-            const float brightness = 0.15f + norm * 0.85f;
-            colour = juce::Colour::fromHSV(0.33f, 0.9f, brightness, 1.0f);
-            weight = 0.3f + norm * 2.2f;
+            // Unselected: per-segment color and weight derived from the average amplitude
+            // of each consecutive breakpoint pair. This makes amplitude envelopes visible
+            // along the partial — quieter sections render thinner and dimmer.
+            for (size_t i = 0; i + 1 < bps.size(); ++i)
+            {
+                const auto& bpA = bps[i];
+                const auto& bpB = bps[i + 1];
+
+                const float xA = timeToX(bpA.time, state, w);
+                const float xB = timeToX(bpB.time, state, w);
+                if (xB < -2.0f || xA > w + 2.0f) continue;
+
+                const float yA = (1.0f - (bpA.frequency - state.viewFreqLow) / freqRange) * partialH;
+                const float yB = (1.0f - (bpB.frequency - state.viewFreqLow) / freqRange) * partialH;
+
+                const float norm       = ampToNorm((bpA.amplitude + bpB.amplitude) * 0.5f);
+                const float brightness = 0.15f + norm * 0.85f;
+                const float weight     = 0.3f  + norm * 2.2f;
+
+                graphics->setColour(juce::Colour::fromHSV(0.33f, 0.9f, brightness, 1.0f));
+                graphics->drawLine(xA, yA, xB, yB, weight);
+            }
         }
-
-        graphics->setColour(colour);
-
-        juce::Path path;
-        bool started = false;
-        for (const auto& bp : bps)
-        {
-            const float x = timeToX(bp.time, state, w);
-            const float y = (1.0f - (bp.frequency - state.viewFreqLow) / freqRange) * partialH;
-
-            if (x < -2.0f || x > w + 2.0f) { started = false; continue; }
-            if (!started) { path.startNewSubPath(x, y); started = true; }
-            else          path.lineTo(x, y);
-        }
-        graphics->strokePath(path, juce::PathStrokeType(weight));
     }
 }
 

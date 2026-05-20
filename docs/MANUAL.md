@@ -211,6 +211,16 @@ Hold **Option (⌥)** and drag the playhead to scrub through the audio. The canv
 
 The **In marker** and **Out marker** define the active play region on the canvas ruler. Drag them to set the range; playback starts from the In point and stops (or loops) at the Out point. Use **Transport → Stop** to return to the In point.
 
+You can also set the markers from the keyboard or the Transport menu:
+
+| Action | Shortcut | Menu |
+|---|---|---|
+| Set In Point to playhead | ⌥I | Transport → Set In Point |
+| Set Out Point to playhead | ⌥O | Transport → Set Out Point |
+| Set In/Out to span selection | ⌥S | Transport → Set In/Out from Selection |
+
+**Set In/Out from Selection** is enabled only when one or more partials are selected; it sets the In marker to the earliest breakpoint and the Out marker to the latest breakpoint across the selection.
+
 ### 5.5 Output gain and level meter
 
 The **output gain fader** and **stereo level meter** are at the top of the right panel. The fader controls master output gain (−40 to +6 dB, default −20 dB). The meter shows peak output with hold indicators and clip lights.
@@ -566,7 +576,15 @@ Each partial is represented as an object with metadata (id, start time, duration
 | Action | Shortcut |
 |---|---|
 | Play / Pause | Space |
-| Loop toggle | (Transport menu) |
+| Loop toggle | Transport menu |
+| Set In Point to playhead | ⌥I |
+| Set Out Point to playhead | ⌥O |
+| Set In/Out from Selection | ⌥S |
+
+### Window
+
+| Action | Shortcut |
+|---|---|
 | Minimize window | ⌘M |
 
 ### Tools

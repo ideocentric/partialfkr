@@ -26,14 +26,21 @@ namespace CommandIDs {
     static constexpr int viewTogglePanel = 0x2053;
 
     // Transport
-    static constexpr int transportPlayPause = 0x2040;
-    static constexpr int transportStop      = 0x2041;
-    static constexpr int transportLoop      = 0x2042;
+    static constexpr int transportPlayPause       = 0x2040;
+    static constexpr int transportStop            = 0x2041;
+    static constexpr int transportLoop            = 0x2042;
+    static constexpr int transportSetInPoint      = 0x2043;
+    static constexpr int transportSetOutPoint     = 0x2044;
+    static constexpr int transportSetInOutFromSel = 0x2045;
 
     // Join operations
     static constexpr int editBridgePartials   = 0x2080;
     static constexpr int editCrossfadeOverlap = 0x2081;
     static constexpr int editStretch          = 0x2082;
+
+    // Amplitude / region operations
+    static constexpr int editFadeIn  = 0x2090;
+    static constexpr int editFadeOut = 0x2091;
 
     // Selection
     static constexpr int invertSelection = 0x2030;
