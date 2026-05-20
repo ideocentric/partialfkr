@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none">
+  <!-- Two partial lines joined by an arc above -->
+  <line x1="2" y1="13" x2="7" y2="13" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M7 13 Q10 5 13 13" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
+  <line x1="13" y1="13" x2="18" y2="13" stroke="white" stroke-width="1.6" stroke-linecap="round"/>
+</svg>

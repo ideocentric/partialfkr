@@ -22,7 +22,7 @@ AboutComponent::AboutComponent()
     setup(descLabel,      "Interactive sinusoidal analysis, editing,\n"
                           "and resynthesis.",                                     13.0f);
     setup(licenseLabel,   "Distributed under the GNU AGPLv3 License.",           12.0f);
-    setup(copyrightLabel, juce::String(juce::CharPointer_UTF8("\xc2\xa9 2025 ideocentric")), 12.0f);
+    setup(copyrightLabel, juce::String(juce::CharPointer_UTF8("\xc2\xa9 2025 Matt Comeione")), 12.0f);
 
     addAndMakeVisible(okButton);
     okButton.onClick = [this] {

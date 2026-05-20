@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none">
+  <!-- Two amplitude curves crossing — one fades in as the other fades out -->
+  <path d="M2 5 Q6 5 10 15 Q14 5 18 5"
+        stroke="white" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M2 15 Q6 15 10 5 Q14 15 18 15"
+        stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-opacity="0.45"/>
+</svg>

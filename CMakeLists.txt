@@ -146,6 +146,8 @@ target_sources(PartialFKR PRIVATE
     Source/UI/AboutComponent.cpp
     Source/UI/MacProxyIcon.cpp
     Source/UI/MacWindowHelpers.cpp
+    Source/UI/SideTabBar.cpp
+    Source/UI/ToolsPanel.cpp
     Source/UI/MainComponent.cpp
     Source/UI/PartialView.cpp
     Source/UI/ReductionPanel.cpp
@@ -166,6 +168,24 @@ if(APPLE)
     )
 endif()
 
+juce_add_binary_data(PartialFKRAssets
+    HEADER_NAME BinaryData.h
+    NAMESPACE   BinaryData
+    SOURCES
+        Resources/icons/ui/select.svg
+        Resources/icons/ui/direct.svg
+        Resources/icons/ui/bridge.svg
+        Resources/icons/ui/xfade.svg
+        Resources/icons/ui/stretch.svg
+        Resources/icons/ui/scale.svg
+        Resources/icons/ui/normalize.svg
+        Resources/icons/ui/in.svg
+        Resources/icons/ui/out.svg
+        Resources/icons/ui/sel.svg
+        Resources/icons/ui/fadein.svg
+        Resources/icons/ui/fadeout.svg
+)
+
 target_include_directories(PartialFKR PRIVATE Source)
 
 target_compile_definitions(PartialFKR
@@ -179,6 +199,7 @@ target_compile_definitions(PartialFKR
 
 target_link_libraries(PartialFKR
     PRIVATE
+        PartialFKRAssets
         loris_static
         juce::juce_audio_basics
         juce::juce_audio_devices

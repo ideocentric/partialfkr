@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none">
+  <!-- In-point marker — green, matches canvas ruler marker color -->
+  <line x1="8" y1="5" x2="8" y2="18" stroke="#44ff88" stroke-width="2" stroke-linecap="round"/>
+  <polygon points="5,5 11,5 8,11" fill="#44ff88"/>
+  <!-- Region indicator extending right -->
+  <line x1="8" y1="11" x2="16" y2="11" stroke="#44ff88" stroke-width="1" stroke-opacity="0.45" stroke-dasharray="2,2"/>
+</svg>

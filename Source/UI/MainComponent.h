@@ -20,6 +20,8 @@
 #include "UI/MacProxyIcon.h"
 #include "UI/PartialView.h"
 #include "UI/ReductionPanel.h"
+#include "UI/SideTabBar.h"
+#include "UI/ToolsPanel.h"
 #include "UI/TransportBar.h"
 
 #include <JuceHeader.h>
@@ -171,11 +173,20 @@ private:
     PartialSynth         synth;
     ReductionController  reductionController{project};
 
-    PartialView     partialView{project};
-    ReductionPanel  reductionPanel{project, reductionController};
+    PartialView     partialView     {project};
+    ReductionPanel  reductionPanel  {project, reductionController};
+    ToolsPanel      toolsPanel;
     TransportBar    transportBar;
     InspectorPanel  inspectorPanel{project};
     LevelMeter      levelMeter{levelL, levelR};
+
+    // ── Side panel tab bar ────────────────────────────────────────────────────
+    SideTabBar sideTabBar;
+    bool       showToolsTab = true;
+
+    void switchSideTab(bool showTools);
+
+    juce::TooltipWindow tooltipWindow { this, 600 };
 
     juce::Slider           gainKnob{juce::Slider::LinearVertical,
                                    juce::Slider::NoTextBox};

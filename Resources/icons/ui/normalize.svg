@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none">
+  <!-- Bars at varying heights with a ceiling line; tallest bar touches the ceiling -->
+  <line x1="2" y1="4" x2="18" y2="4" stroke="white" stroke-width="1" stroke-dasharray="2.5,2"/>
+  <rect x="3"   y="8"  width="3" height="9" rx="0.5" fill="white" fill-opacity="0.45"/>
+  <rect x="8.5" y="11" width="3" height="6" rx="0.5" fill="white" fill-opacity="0.45"/>
+  <rect x="14"  y="4"  width="3" height="13" rx="0.5" fill="white" fill-opacity="0.85"/>
+  <line x1="15.5" y1="1" x2="15.5" y2="4" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M13.5 3 L15.5 1 L17.5 3" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

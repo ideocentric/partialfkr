@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none">
+  <!-- Set in/out from selection: dashed selection box with both markers flanking it -->
+  <rect x="6" y="7" width="8" height="6" stroke="white" stroke-width="1"
+        stroke-dasharray="2,1.5" fill="white" fill-opacity="0.06"/>
+  <!-- In marker (green, left) -->
+  <line x1="6" y1="4" x2="6" y2="17" stroke="#44ff88" stroke-width="1.6" stroke-linecap="round"/>
+  <polygon points="4,4 8,4 6,8" fill="#44ff88"/>
+  <!-- Out marker (red, right) -->
+  <line x1="14" y1="4" x2="14" y2="17" stroke="#ff4444" stroke-width="1.6" stroke-linecap="round"/>
+  <polygon points="12,4 16,4 14,8" fill="#ff4444"/>
+</svg>

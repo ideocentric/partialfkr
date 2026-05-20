@@ -7,20 +7,15 @@
 #include <JuceHeader.h>
 
 /**
- * Side panel with edit-mode toggle and filter controls.
+ * Filter panel — reduction filter controls (Top-N, amplitude, duration, frequency, energy).
  * Changes are applied instantly so the user hears the result in real time.
+ * Edit-mode toggle lives in ToolsPanel; this panel is shown on the Filters tab.
  */
 class ReductionPanel : public juce::Component {
 public:
     ReductionPanel(Project& project, ReductionController& controller);
 
     void resized() override;
-
-    /** Update the highlighted button to match the current tool mode. */
-    void setActiveMode(bool isDirect);
-
-    /** Fired when the user clicks a mode button. Argument: true = DirectSelect. */
-    std::function<void(bool)> onToolModeChanged;
 
     /** Total fixed height this panel requires. Parent layout uses this to allocate space. */
     static constexpr int preferredHeight()
@@ -30,7 +25,6 @@ public:
         const int labelH = 18;
         const int nRows  = 6;
         return pad * 2
-             + labelH + 28 + pad          // edit mode: label + buttons + gap
              + 24 + pad                   // filters title + gap
              + nRows * (labelH + (rowH - labelH) + pad / 2)  // filter rows
              + pad + 28;                  // gap + reset button
@@ -41,10 +35,6 @@ private:
 
     Project&             project;
     ReductionController& controller;
-
-    juce::Label      editModeLabel  {"emLabel", "Edit Mode"};
-    juce::TextButton selectButton   {"Select"};
-    juce::TextButton directSelButton{"Direct Select"};
 
     juce::Label  titleLabel{"title", "Filters"};
 

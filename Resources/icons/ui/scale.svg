@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none">
+  <!-- Three amplitude bars with an upward arrow showing scaling -->
+  <rect x="3"    y="10" width="3" height="7" rx="0.5" fill="white" fill-opacity="0.45"/>
+  <rect x="8.5"  y="7"  width="3" height="10" rx="0.5" fill="white" fill-opacity="0.65"/>
+  <rect x="14"   y="12" width="3" height="5" rx="0.5" fill="white" fill-opacity="0.45"/>
+  <line x1="10" y1="2" x2="10" y2="6" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M8 4.5 L10 2 L12 4.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

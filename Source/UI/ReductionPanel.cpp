@@ -7,18 +7,6 @@ ReductionPanel::ReductionPanel(Project& p, ReductionController& c)
     buildLayout();
 }
 
-void ReductionPanel::setActiveMode(bool isDirect)
-{
-    selectButton.setColour(juce::TextButton::buttonColourId,
-        !isDirect ? juce::Colour(0xff606060) : juce::Colour(0xff1a1a1a));
-    selectButton.setColour(juce::TextButton::textColourOffId,
-        !isDirect ? juce::Colours::white : juce::Colours::grey);
-    directSelButton.setColour(juce::TextButton::buttonColourId,
-        isDirect ? juce::Colour(0xff606060) : juce::Colour(0xff1a1a1a));
-    directSelButton.setColour(juce::TextButton::textColourOffId,
-        isDirect ? juce::Colours::white : juce::Colours::grey);
-}
-
 void ReductionPanel::buildLayout()
 {
     auto addLabelAndSlider = [this](juce::Label& label, juce::Slider& slider) {
@@ -27,22 +15,6 @@ void ReductionPanel::buildLayout()
         slider.setSliderStyle(juce::Slider::LinearHorizontal);
         slider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 60, 20);
     };
-
-    // Edit Mode buttons
-    addAndMakeVisible(editModeLabel);
-    addAndMakeVisible(selectButton);
-    addAndMakeVisible(directSelButton);
-    selectButton.setWantsKeyboardFocus(false);
-    directSelButton.setWantsKeyboardFocus(false);
-    selectButton.onClick = [this] {
-        setActiveMode(false);
-        if (onToolModeChanged) onToolModeChanged(false);
-    };
-    directSelButton.onClick = [this] {
-        setActiveMode(true);
-        if (onToolModeChanged) onToolModeChanged(true);
-    };
-    setActiveMode(false);
 
     addAndMakeVisible(titleLabel);
     titleLabel.setFont(juce::Font{16.0f}.boldened());
@@ -112,12 +84,6 @@ void ReductionPanel::resized()
     const int rowH   = 40;
     const int labelH = 18;
     auto area = getLocalBounds().reduced(pad);
-
-    editModeLabel.setBounds(area.removeFromTop(labelH));
-    auto modeRow = area.removeFromTop(28);
-    selectButton   .setBounds(modeRow.removeFromLeft(modeRow.getWidth() / 2).reduced(2, 0));
-    directSelButton.setBounds(modeRow.reduced(2, 0));
-    area.removeFromTop(pad);
 
     titleLabel.setBounds(area.removeFromTop(24));
     area.removeFromTop(pad);

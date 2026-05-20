@@ -409,16 +409,24 @@ MainComponent::MainComponent()
 
     addAndMakeVisible(partialView);
     addAndMakeVisible(transportBar);
-    addAndMakeVisible(reductionPanel);
+    addAndMakeVisible(sideTabBar);      // drawn first — panels must be added after
+    addAndMakeVisible(reductionPanel);  // drawn on top of sideTabBar chrome
+    addAndMakeVisible(toolsPanel);
     addAndMakeVisible(inspectorPanel);
     addAndMakeVisible(levelMeter);
 
     partialView.setComponentID("partialView");
     transportBar.setComponentID("transportBar");
     reductionPanel.setComponentID("reductionPanel");
+    toolsPanel.setComponentID("toolsPanel");
     inspectorPanel.setComponentID("inspectorPanel");
     levelMeter.setComponentID("levelMeter");
     gainKnob.setComponentID("gainKnob");
+
+    // ── Tab bar ───────────────────────────────────────────────────────────────
+    sideTabBar.onTabChanged = [this](bool showTools) { switchSideTab(showTools); };
+    toolsPanel.setVisible(true);
+    reductionPanel.setVisible(false);
 
     gainKnob.setRange(-40.0, 6.0, 0.1);
     gainKnob.setValue(-20.0, juce::dontSendNotification);
@@ -444,13 +452,40 @@ MainComponent::MainComponent()
     partialView.onRedo             = [this] { editRedo(); };
     partialView.onBreakpointDelete = [this] { editBreakpointDelete(); };
     partialView.onStretch          = [this] { editStretch(); };
-    partialView.onToolModeChanged              = [this](bool isDirect) { reductionPanel.setActiveMode(isDirect); };
-    partialView.onBreakpointSelectionChanged   = [this] { if (onMenuStateChanged) onMenuStateChanged(); };
+    partialView.onToolModeChanged            = [this](bool isDirect) { toolsPanel.setToolMode(isDirect); };
+    partialView.onBreakpointSelectionChanged = [this] { if (onMenuStateChanged) onMenuStateChanged(); };
 
-    reductionPanel.onToolModeChanged = [this](bool isDirect) {
+    toolsPanel.onToolModeChanged = [this](bool isDirect) {
         partialView.setToolMode(isDirect ? PartialView::ToolMode::DirectSelect
                                          : PartialView::ToolMode::Selection);
     };
+
+    // Marker buttons
+    toolsPanel.onSetIn  = [this] { updateMarkers(transportBar.getPlayheadPosition(), outPoint); };
+    toolsPanel.onSetOut = [this] { updateMarkers(inPoint, transportBar.getPlayheadPosition()); };
+    toolsPanel.onSetInOutFromSel = [this] {
+        const auto& sel = project.getSelection();
+        if (sel.isEmpty()) return;
+        double earliest = std::numeric_limits<double>::max();
+        double latest   = std::numeric_limits<double>::lowest();
+        for (const auto& p : project.getPartials())
+        {
+            if (!sel.isSelected(p->getId()) || p->breakpoints.empty()) continue;
+            earliest = std::min(earliest, p->breakpoints.front().time);
+            latest   = std::max(latest,   p->breakpoints.back().time);
+        }
+        if (earliest < std::numeric_limits<double>::max())
+            updateMarkers(earliest, latest);
+    };
+
+    // Operation buttons
+    toolsPanel.onBridge    = [this] { performBridgePartials(); };
+    toolsPanel.onCrossfade = [this] { performCrossfadeOverlap(); };
+    toolsPanel.onStretch   = [this] { editStretch(); };
+    toolsPanel.onScale     = [this] { performScaleAmplitude(); };
+    toolsPanel.onNormalize = [this] { performNormalize(); };
+    toolsPanel.onFadeIn    = [this] { performFade(true); };
+    toolsPanel.onFadeOut   = [this] { performFade(false); };
 
     transportBar.onPlayPauseToggle = [this] { handlePlayPauseToggle(); };
     transportBar.onStop            = [this] { handleStop(); };
@@ -579,7 +614,7 @@ void MainComponent::resized()
     // Right panel column — hidden entirely when rightPanelVisible is false
     if (rightPanelVisible)
     {
-        const int panelW = 220;
+        const int panelW = 240;
         auto rightColumn = area.removeFromRight(panelW);
 
         // Gain fader + level meter: vertical unit at top of right column
@@ -605,9 +640,26 @@ void MainComponent::resized()
         faderCol.removeFromLeft(2);
         gainKnob.setBounds(faderCol);
 
-        reductionPanel.setBounds(rightColumn.removeFromTop(ReductionPanel::preferredHeight()));
+        // ── Side tab panel (chrome + content) ────────────────────────────────
+        rightColumn.removeFromTop(4);
+        const int contentH = std::max(ToolsPanel::preferredHeight(),
+                                      ReductionPanel::preferredHeight());
+        const int tabPanelH  = SideTabBar::preferredHeight(contentH);
+        const int tabMarginH = 8;  // exterior gap between panel border and column edges
+        auto sideArea        = rightColumn.removeFromTop(tabPanelH);
+        auto sideTabArea     = sideArea.reduced(tabMarginH, 0);
+        sideTabBar.setBounds(sideTabArea);
+
+        // Position content panels inside the SideTabBar's content area
+        const auto panelArea = sideTabBar.getContentBounds()
+                                         .translated(sideTabArea.getX(), sideTabArea.getY());
+        toolsPanel    .setBounds(showToolsTab ? panelArea : juce::Rectangle<int>{});
+        reductionPanel.setBounds(showToolsTab ? juce::Rectangle<int>{} : panelArea);
+
+        // ── Inspector (fixed, always visible) ────────────────────────────────
+        rightColumn.removeFromTop(4);
         inspectorPanel.setBounds(rightColumn.removeFromTop(160));
-        // remainder of rightColumn is blank space that grows with the window
+        // remainder grows with the window
     }
     else
     {
@@ -615,12 +667,22 @@ void MainComponent::resized()
         gainLabel.setBounds({});
         gainScaleArea = {};
         levelMeter.setBounds({});
+        sideTabBar.setBounds({});
+        toolsPanel.setBounds({});
         reductionPanel.setBounds({});
         inspectorPanel.setBounds({});
     }
 
     // Partial canvas fills everything left
     partialView.setBounds(area);
+}
+
+void MainComponent::switchSideTab(bool showTools)
+{
+    showToolsTab = showTools;
+    toolsPanel.setVisible(showTools);
+    reductionPanel.setVisible(!showTools);
+    resized();
 }
 
 void MainComponent::partialsChanged(Project&)
