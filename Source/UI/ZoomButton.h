@@ -26,17 +26,18 @@ protected:
         const float arm   = r * 0.55f;
         const float thick = r * 0.18f;
 
-        // Background circle
+        // Background rounded square
         const juce::Colour bg = isButtonDown       ? juce::Colour(0xff4a4a4a)
                                : isMouseOverButton  ? juce::Colour(0xff3a3a3a)
                                : isEnabled()        ? juce::Colour(0xff2a2a2a)
                                                     : juce::Colour(0xff1e1e1e);
+        constexpr float cornerR = 3.0f;
         g.setColour(bg);
-        g.fillEllipse(cx - r, cy - r, r * 2.0f, r * 2.0f);
+        g.fillRoundedRectangle(bounds, cornerR);
 
         // Border
         g.setColour(juce::Colour(0xff606060));
-        g.drawEllipse(cx - r, cy - r, r * 2.0f, r * 2.0f, 0.8f);
+        g.drawRoundedRectangle(bounds, cornerR, 0.8f);
 
         // Symbol
         const juce::Colour sym = isEnabled() ? juce::Colours::lightgrey

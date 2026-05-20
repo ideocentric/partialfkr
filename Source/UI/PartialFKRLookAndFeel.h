@@ -44,5 +44,9 @@ public:
         // so this acts as a safe fallback for any future unlabelled labels.
         setColour(juce::Label::textColourId,               juce::Colour(0xffcccccc));
         setColour(juce::Label::backgroundColourId,         juce::Colour(0x00000000));
+
+        // ── ScrollBar ─────────────────────────────────────────────────────────
+        setColour(juce::ScrollBar::backgroundColourId,     juce::Colour(0xff0d0d0d));
+        setColour(juce::ScrollBar::thumbColourId,          juce::Colour(0xff3a3a3a));
     }
 };

@@ -95,6 +95,11 @@ void PartialView::paint(juce::Graphics& g)
 
     renderer->render(buildRenderState());
 
+    // Fill chrome strips with panel background so they don't show canvas dark color
+    g.setColour(juce::Colour(0xff1a1a1a));
+    g.fillRect(getWidth() - kChrome, 0, kChrome, getHeight());  // right strip + corner
+    g.fillRect(0, getHeight() - kChrome, getWidth(), kChrome);  // bottom strip
+
     if (isRangeSelecting)
     {
         const float canvasW = static_cast<float>(getWidth() - kChrome);

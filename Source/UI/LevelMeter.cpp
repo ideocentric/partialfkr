@@ -144,7 +144,7 @@ static void drawScale(juce::Graphics& g, juce::Rectangle<int> area,
 
 void LevelMeter::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colours::black);
+    g.fillAll(juce::Colour(0xff0d0d0d));
 
     auto area = getLocalBounds().reduced(1);
 
