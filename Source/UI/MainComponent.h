@@ -184,6 +184,7 @@ private:
     SideTabBar sideTabBar;
     bool       showToolsTab = true;
 
+public:
     void switchSideTab(bool showTools);
 
     juce::TooltipWindow tooltipWindow { this, 600 };

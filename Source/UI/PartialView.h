@@ -18,6 +18,7 @@
  * Input map:
  *   V                      → Selection tool (whole-partial select)
  *   A                      → Direct Select tool (breakpoint-level select, snaps to nodes)
+ *   Click empty-state link → triggers Analyze Audio (onAnalyzeRequested)
  *   Option + scroll        → horizontal (time) zoom, anchored to cursor
  *   Shift  + scroll        → vertical (freq) zoom, pinned to 0 Hz
  *   Unmodified vert scroll → pan frequency axis
@@ -32,6 +33,7 @@
 class PartialView : public juce::Component,
                     public juce::OpenGLRenderer,
                     public juce::ScrollBar::Listener,
+                    public juce::Timer,
                     public Project::Listener,
                     public Selection::Listener {
 public:
@@ -44,8 +46,14 @@ public:
     void mouseDown(const juce::MouseEvent& e) override;
     void mouseDrag(const juce::MouseEvent& e) override;
     void mouseUp  (const juce::MouseEvent& e) override;
+    void mouseMove(const juce::MouseEvent& e) override;
+    void mouseExit(const juce::MouseEvent& e) override;
     void mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) override;
+    juce::MouseCursor getMouseCursor() override;
     bool keyPressed(const juce::KeyPress& key) override;
+
+    // ── juce::Timer ───────────────────────────────────────────────────────────
+    void timerCallback() override;
 
     // ── juce::OpenGLRenderer (stubs until Metal/GL milestone) ────────────────
     void newOpenGLContextCreated() override;
@@ -102,6 +110,12 @@ public:
     std::function<void()>       onScrubEnd;     ///< mouseUp: release scrub
     std::function<void()> onUndo;
     std::function<void()> onRedo;
+
+    /** Called when the user clicks the "Open a file to analyse" link in the empty canvas. */
+    std::function<void()> onAnalyzeRequested;
+
+    /** Set to 0.0 when analysis starts, 0.5–1.0 during conversion, -1.0 when idle. */
+    void setAnalysisProgress(float p);
 
     /** Time position set by the last background click — used as paste insertion point. */
     [[nodiscard]] double getPasteTime() const noexcept { return pasteTimeSeconds; }
@@ -191,6 +205,13 @@ private:
     bool               dragStartedOnPartial = false;
     bool               isRangeSelecting     = false;
     double             pasteTimeSeconds = 0.0; ///< time set by last background click
+
+    bool  linkHovered      = false;   ///< true when cursor is over the empty-state link
+    float analysisProgress = -1.0f;  ///< -1 = idle, 0 = indeterminate, 0.5–1.0 = determinate
+    float pulsePhase       = 0.0f;   ///< 0–1, advances each timer tick during indeterminate phase
+
+    [[nodiscard]] juce::Rectangle<float> getLinkBounds() const noexcept;
+    void drawAnalysisProgress(juce::Graphics& g) const;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PartialView)
 };

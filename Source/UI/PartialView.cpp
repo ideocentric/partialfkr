@@ -95,6 +95,9 @@ void PartialView::paint(juce::Graphics& g)
 
     renderer->render(buildRenderState());
 
+    if (analysisProgress >= 0.0f)
+        drawAnalysisProgress(g);
+
     // Fill chrome strips with panel background so they don't show canvas dark color
     g.setColour(juce::Colour(0xff1a1a1a));
     g.fillRect(getWidth() - kChrome, 0, kChrome, getHeight());  // right strip + corner
@@ -164,7 +167,96 @@ RenderState PartialView::buildRenderState() const
         s.showBreakpoints = true;
         s.bpSelection     = &selectedBreakpoints;
     }
+    s.linkHovered = linkHovered;
+    s.isAnalysing = (analysisProgress >= 0.0f);
     return s;
+}
+
+void PartialView::setAnalysisProgress(float p)
+{
+    analysisProgress = p;
+    if (p >= 0.0f)
+    {
+        if (!isTimerRunning())
+            startTimerHz(30);
+    }
+    else
+    {
+        stopTimer();
+        pulsePhase = 0.0f;
+    }
+    repaint();
+}
+
+void PartialView::timerCallback()
+{
+    if (analysisProgress == 0.0f)
+    {
+        pulsePhase += 0.025f;
+        if (pulsePhase > 1.0f) pulsePhase -= 1.0f;
+    }
+    repaint();
+}
+
+void PartialView::drawAnalysisProgress(juce::Graphics& g) const
+{
+    const float canvasW = static_cast<float>(getWidth()  - kChrome);
+    const float canvasH = static_cast<float>(getHeight() - kChrome - kRulerH);
+
+    const float barW = std::min(300.0f, canvasW * 0.5f);
+    const float barH = 8.0f;
+    const float barX = (canvasW - barW) * 0.5f;
+    const float barY = canvasH * 0.5f + 16.0f;
+
+    g.setFont(juce::Font(14.0f));
+    g.setColour(juce::Colour(0xffaaaaaa));
+    g.drawText("Analysing...",
+               juce::Rectangle<float>(0.0f, canvasH * 0.5f - 28.0f, canvasW, 18.0f),
+               juce::Justification::centred);
+
+    // Trough
+    g.setColour(juce::Colour(0xff2a2a2a));
+    g.fillRoundedRectangle(barX, barY, barW, barH, barH * 0.5f);
+
+    const juce::Colour barCol = juce::Colour::fromHSV(0.33f, 0.9f, 0.6f, 1.0f);
+
+    if (analysisProgress == 0.0f)
+    {
+        // Indeterminate: comet sweeps left to right
+        const float cometW  = barW * 0.35f;
+        const float cometX  = barX + pulsePhase * (barW + cometW) - cometW;
+        const float clipX   = std::max(barX, cometX);
+        const float clipW   = std::min(cometX + cometW, barX + barW) - clipX;
+        if (clipW > 0.0f)
+        {
+            g.setColour(barCol);
+            g.fillRoundedRectangle(clipX, barY, clipW, barH, barH * 0.5f);
+        }
+    }
+    else
+    {
+        // Determinate: fill proportional to overall progress (0.5→1.0 maps to half→full)
+        const float fillW = barW * analysisProgress;
+        if (fillW > 0.0f)
+        {
+            g.setColour(barCol);
+            g.fillRoundedRectangle(barX, barY, fillW, barH, barH * 0.5f);
+        }
+    }
+}
+
+juce::Rectangle<float> PartialView::getLinkBounds() const noexcept
+{
+    const float canvasW = static_cast<float>(getWidth()  - kChrome);
+    const float canvasH = static_cast<float>(getHeight() - kChrome - kRulerH);
+    juce::Font f(14.0f);
+    const float textW = f.getStringWidthFloat("Open a file to analyse");
+    const float textH = f.getHeight();
+    constexpr float padX = 8.0f;
+    constexpr float padY = 4.0f;
+    const float x = (canvasW - textW) * 0.5f - padX;
+    const float y = (canvasH - textH) * 0.5f - padY;
+    return { x, y, textW + padX * 2.0f, textH + padY * 2.0f };
 }
 
 // ── Tool mode ─────────────────────────────────────────────────────────────────
@@ -274,8 +366,49 @@ void PartialView::panFrequency(float deltaHz)
 
 // ── Mouse interaction ─────────────────────────────────────────────────────────
 
+void PartialView::mouseMove(const juce::MouseEvent& e)
+{
+    if (project.getPartials().empty())
+    {
+        const bool over = getLinkBounds().contains(e.position);
+        if (over != linkHovered)
+        {
+            linkHovered = over;
+            repaint();
+        }
+    }
+    else if (linkHovered)
+    {
+        linkHovered = false;
+        repaint();
+    }
+}
+
+void PartialView::mouseExit(const juce::MouseEvent&)
+{
+    if (linkHovered)
+    {
+        linkHovered = false;
+        repaint();
+    }
+}
+
+juce::MouseCursor PartialView::getMouseCursor()
+{
+    if (linkHovered)
+        return juce::MouseCursor::PointingHandCursor;
+    return juce::MouseCursor::NormalCursor;
+}
+
 void PartialView::mouseDown(const juce::MouseEvent& e)
 {
+    // Empty-state link click
+    if (project.getPartials().empty() && getLinkBounds().contains(e.position))
+    {
+        if (onAnalyzeRequested) onAnalyzeRequested();
+        return;
+    }
+
     grabKeyboardFocus();
 
     const int   partialAreaH = getHeight() - kChrome - kRulerH;

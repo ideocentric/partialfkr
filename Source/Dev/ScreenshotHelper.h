@@ -184,76 +184,91 @@ private:
                 startTimer(900);
                 break;
 
-            // ── 1: Loaded — capture default states ──────────────────────────
+            // ── 1: Loaded — Tools tab (default) ─────────────────────────────
             case 1:
                 saveWindow("S-02_loaded_window");
                 saveChild("partialView",   "S-11_canvas_default");
                 saveChild("transportBar",  "S-16_transport_stopped");
-                saveChild("reductionPanel","S-33_filters_default");
                 saveChild("inspectorPanel","S-42_inspector_no_selection");
                 saveChild("levelMeter",    "S-20_level_meter");
                 saveChild("gainKnob",      "S-21_gain_fader");
+                saveChild("sideTabBar",    "S-05_tab_tools_active");
+                saveChild("toolsPanel",    "S-28_tools_panel_default");
                 startTimer(200);
                 break;
 
-            // ── 2: Zoom in ───────────────────────────────────────────────────
+            // ── 2: Switch to Filters tab — capture panel + tab chrome ────────
             case 2:
-                invoke(CommandIDs::viewZoomIn);
-                invoke(CommandIDs::viewZoomIn);
-                invoke(CommandIDs::viewZoomIn);
-                startTimer(200);
+                mc->switchSideTab(false);
+                startTimer(300);
                 break;
 
             case 3:
+                saveChild("sideTabBar",    "S-06_tab_filters_active");
+                saveChild("reductionPanel","S-33_filters_default");
+                mc->switchSideTab(true);   // back to Tools
+                startTimer(200);
+                break;
+
+            // ── 4: Zoom in ───────────────────────────────────────────────────
+            case 4:
+                invoke(CommandIDs::viewZoomIn);
+                invoke(CommandIDs::viewZoomIn);
+                invoke(CommandIDs::viewZoomIn);
+                startTimer(200);
+                break;
+
+            case 5:
                 saveChild("partialView", "S-12_canvas_zoomed_in");
                 invoke(CommandIDs::viewZoomFit);
                 startTimer(200);
                 break;
 
-            // ── 4: Zoom to fit ───────────────────────────────────────────────
-            case 4:
+            // ── 6: Zoom to fit ───────────────────────────────────────────────
+            case 6:
                 saveChild("partialView", "S-13_canvas_zoom_fit");
                 invoke(juce::StandardApplicationCommandIDs::selectAll);
                 startTimer(200);
                 break;
 
-            // ── 5: All partials selected ─────────────────────────────────────
-            case 5:
+            // ── 7: All partials selected ─────────────────────────────────────
+            case 7:
                 saveWindow("S-24_window_all_selected");
                 saveChild("partialView",   "S-25_canvas_all_selected");
                 saveChild("inspectorPanel","S-43_inspector_with_selection");
-                saveChild("reductionPanel","S-26_edit_mode_select_active");
+                saveChild("toolsPanel",    "S-29_tools_select_mode");
                 invoke(juce::StandardApplicationCommandIDs::deselectAll);
                 startTimer(200);
                 break;
 
-            // ── 6: Direct Select mode ────────────────────────────────────────
-            case 6:
+            // ── 8: Direct Select mode ────────────────────────────────────────
+            case 8:
                 keyToPartialView('a');
                 startTimer(200);
                 break;
 
-            case 7:
-                saveChild("reductionPanel","S-27_edit_mode_direct_select_active");
-                keyToPartialView('v');          // back to Select
+            case 9:
+                saveChild("toolsPanel", "S-30_tools_direct_select_mode");
+                keyToPartialView('v');   // back to Select
                 invoke(CommandIDs::viewTogglePanel);
                 startTimer(200);
                 break;
 
-            // ── 8: Panel hidden ──────────────────────────────────────────────
-            case 8:
+            // ── 10: Panel hidden ─────────────────────────────────────────────
+            case 10:
                 saveWindow("S-04_panel_hidden");
                 invoke(CommandIDs::viewTogglePanel);   // show again
                 startTimer(300);
                 break;
 
-            // ── 9: Top-N filter ──────────────────────────────────────────────
-            case 9:
+            // ── 11: Filters tab — Top-N filter ───────────────────────────────
+            case 11:
+                mc->switchSideTab(false);   // show Filters tab
                 setNthSlider("reductionPanel", 0, 12.0);
                 startTimer(300);
                 break;
 
-            case 10:
+            case 12:
                 saveChild("reductionPanel","S-34_filters_topN_set");
                 saveChild("partialView",   "S-37_canvas_after_topN_filter");
                 saveWindow("S-36_window_after_filter");
@@ -261,22 +276,23 @@ private:
                 startTimer(200);
                 break;
 
-            // ── 11: Frequency band filter ────────────────────────────────────
-            case 11:
+            // ── 13: Frequency band filter ────────────────────────────────────
+            case 13:
                 setNthSlider("reductionPanel", 3, 150.0);
                 setNthSlider("reductionPanel", 4, 1200.0);
                 startTimer(300);
                 break;
 
-            case 12:
+            case 14:
                 saveChild("reductionPanel","S-35_filters_freq_band");
                 clickButton("reductionPanel", "Reset");
+                mc->switchSideTab(true);   // back to Tools tab
                 invoke(CommandIDs::transportLoop);
                 startTimer(200);
                 break;
 
-            // ── 13: Loop enabled ─────────────────────────────────────────────
-            case 13:
+            // ── 15: Loop enabled ─────────────────────────────────────────────
+            case 15:
                 saveChild("transportBar", "S-19_transport_loop_on");
                 invoke(CommandIDs::transportLoop);
                 writeManifest();

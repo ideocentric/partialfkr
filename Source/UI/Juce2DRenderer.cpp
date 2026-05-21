@@ -19,13 +19,25 @@ void Juce2DRenderer::render(const RenderState& state)
 
     if (state.partials->empty())
     {
-        graphics->setColour(juce::Colours::darkgrey);
-        graphics->setFont(14.0f);
-        graphics->drawText("Open a file to analyse",
-                           juce::Rectangle<int>(0, 0,
-                               state.canvasWidth,
-                               static_cast<int>(partialH)),
-                           juce::Justification::centred);
+        if (!state.isAnalysing)
+        {
+            static const juce::String kLinkText = "Open a file to analyse";
+            const juce::Colour linkCol = juce::Colour::fromHSV(0.33f, 0.9f,
+                                                                 state.linkHovered ? 0.80f : 0.60f,
+                                                                 1.0f);
+            juce::Font f(14.0f);
+            const float textW = f.getStringWidthFloat(kLinkText);
+            const float textX = (static_cast<float>(state.canvasWidth) - textW) * 0.5f;
+            const float textY = (partialH - f.getHeight()) * 0.5f;
+
+            graphics->setFont(f);
+            graphics->setColour(linkCol);
+            graphics->drawText(kLinkText,
+                               juce::Rectangle<float>(textX, textY, textW, f.getHeight()),
+                               juce::Justification::centredLeft);
+            graphics->drawLine(textX, textY + f.getAscent() + 1.0f,
+                               textX + textW, textY + f.getAscent() + 1.0f, 1.0f);
+        }
         drawRuler(state, rulerY);
         return;
     }

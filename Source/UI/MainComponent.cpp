@@ -422,6 +422,7 @@ MainComponent::MainComponent()
     inspectorPanel.setComponentID("inspectorPanel");
     levelMeter.setComponentID("levelMeter");
     gainKnob.setComponentID("gainKnob");
+    sideTabBar.setComponentID("sideTabBar");
 
     // ── Tab bar ───────────────────────────────────────────────────────────────
     sideTabBar.onTabChanged = [this](bool showTools) { switchSideTab(showTools); };
@@ -450,6 +451,7 @@ MainComponent::MainComponent()
     partialView.onDelete = [this] { editDelete(); };
     partialView.onUndo             = [this] { editUndo(); };
     partialView.onRedo             = [this] { editRedo(); };
+    partialView.onAnalyzeRequested = [this] { openFileAndAnalyze(); };
     partialView.onBreakpointDelete = [this] { editBreakpointDelete(); };
     partialView.onStretch          = [this] { editStretch(); };
     partialView.onToolModeChanged            = [this](bool isDirect) { toolsPanel.setToolMode(isDirect); };
@@ -714,13 +716,14 @@ void MainComponent::openFileAndAnalyze()
                                  return;
 
                              setWindowTitle("PartialFKR - Analysing...");
+                             partialView.setAnalysisProgress(0.0f);
 
                              project.loadSourceAudio(results[0]);
 
                              analyzer.analyzeAsync(
                                  project.getSourceAudio(),
                                  project.getSampleRate(),
-                                 [](float /*progress*/) {},
+                                 [this](float p) { partialView.setAnalysisProgress(p); },
                                  [this](auto partials) {
                                      onAnalysisComplete(std::move(partials));
                                  });
@@ -729,6 +732,7 @@ void MainComponent::openFileAndAnalyze()
 
 void MainComponent::onAnalysisComplete(std::vector<std::unique_ptr<Partial>> partials)
 {
+    partialView.setAnalysisProgress(-1.0f);
     setWindowTitle("PartialFKR - " + project.getSourceFile().getFileName());
     MacProxyIcon::set(getTopLevelComponent(), project.getSourceFile());
 

@@ -38,6 +38,9 @@ struct RenderState {
 
     bool                          showBreakpoints = false;
     const std::set<BreakpointRef>* bpSelection    = nullptr; ///< null = none selected
+
+    bool linkHovered  = false;  ///< true when cursor hovers the empty-state "Open a file" link
+    bool isAnalysing  = false;  ///< true while analysis is running — suppresses the link text
 };
 
 /**

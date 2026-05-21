@@ -7,6 +7,8 @@ Source: `/Users/matt/Documents/GitHub/personal/partialfkr/samples/demo.pfkr`
 | S-01_empty_window.png | |
 | S-02_loaded_window.png | |
 | S-04_panel_hidden.png | |
+| S-05_tab_tools_active.png | |
+| S-06_tab_filters_active.png | |
 | S-11_canvas_default.png | |
 | S-12_canvas_zoomed_in.png | |
 | S-13_canvas_zoom_fit.png | |
@@ -18,6 +20,9 @@ Source: `/Users/matt/Documents/GitHub/personal/partialfkr/samples/demo.pfkr`
 | S-25_canvas_all_selected.png | |
 | S-26_edit_mode_select_active.png | |
 | S-27_edit_mode_direct_select_active.png | |
+| S-28_tools_panel_default.png | |
+| S-29_tools_select_mode.png | |
+| S-30_tools_direct_select_mode.png | |
 | S-33_filters_default.png | |
 | S-34_filters_topN_set.png | |
 | S-35_filters_freq_band.png | |
