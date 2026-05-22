@@ -45,6 +45,10 @@ target_compile_definitions(loris_static PUBLIC
     HAVE_M_PI=1
     HAVE_ISFINITE=1
 )
+if(MSVC)
+    # MSVC omits M_PI from <cmath> unless this is defined.
+    target_compile_definitions(loris_static PRIVATE _USE_MATH_DEFINES)
+endif()
 set_target_properties(loris_static PROPERTIES CXX_STANDARD 14)
 if(MSVC)
     target_compile_options(loris_static PRIVATE /w)
