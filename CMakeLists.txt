@@ -46,7 +46,11 @@ target_compile_definitions(loris_static PUBLIC
     HAVE_ISFINITE=1
 )
 set_target_properties(loris_static PROPERTIES CXX_STANDARD 14)
-target_compile_options(loris_static PRIVATE -w)  # suppress vendored-code warnings
+if(MSVC)
+    target_compile_options(loris_static PRIVATE /w)
+else()
+    target_compile_options(loris_static PRIVATE -w)
+endif()
 
 # ── Main application ──────────────────────────────────────────────────────────
 # ── Platform-specific application icon ───────────────────────────────────────
