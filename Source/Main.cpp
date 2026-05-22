@@ -34,8 +34,6 @@ public:
             appleItems.addCommandItem(&commandManager, CommandIDs::appAbout);
             juce::MenuBarModel::setMacMainMenu(&appMenu, &appleItems);
         }
-#else
-        juce::MenuBarModel::setMacMainMenu(&appMenu);
 #endif
 
 #if JUCE_DEBUG
@@ -56,7 +54,9 @@ public:
 
     void shutdown() override
     {
+#if JUCE_MAC
         juce::MenuBarModel::setMacMainMenu(nullptr);
+#endif
         windows.clear();
         juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
     }
@@ -380,7 +380,14 @@ public:
             centreWithSize(getWidth(), getHeight());
             setVisible(true);
             setResizeLimits(800, getHeight(), 10000, 10000);
+#if !JUCE_MAC
+            setMenuBar(&ownerApp.appMenu);
+#endif
         }
+
+#if !JUCE_MAC
+        ~MainWindow() override { setMenuBar(nullptr); }
+#endif
 
         // When this window becomes the active (frontmost) window, make its
         // MainComponent the first target in the command dispatch chain so that

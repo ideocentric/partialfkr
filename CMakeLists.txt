@@ -55,10 +55,11 @@ endif()
 # ── Main application ──────────────────────────────────────────────────────────
 # ── Platform-specific application icon ───────────────────────────────────────
 if(APPLE)
+    # Pass .icns directly — JUCE uses it as the app bundle icon without conversion.
     set(_app_icon "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icons/PartialFKR.icns")
-elseif(WIN32)
-    set(_app_icon "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icons/PartialFKR.ico")
 else()
+    # juceaide reads ICON_BIG as a PNG and generates the platform icon (.ico on
+    # Windows, unused on Linux). Pass the PNG on all non-Apple platforms.
     set(_app_icon "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icons/PartialFKR_512.png")
 endif()
 

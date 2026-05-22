@@ -12,7 +12,7 @@ class ZoomButton : public juce::Button {
 public:
     enum class Sign { Plus, Minus };
 
-    explicit ZoomButton(Sign sign) : juce::Button({}), sign(sign) {}
+    explicit ZoomButton(Sign s) : juce::Button({}), sign(s) {}
 
 protected:
     void paintButton(juce::Graphics& g,

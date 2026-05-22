@@ -93,9 +93,9 @@ float AmplitudeOps::computePeak(const std::vector<SynthData>& partials)
 
             auto& st = states[pi];
 
-            for (int i = 0; i < n; ++i)
+            for (size_t i = 0; i < static_cast<size_t>(n); ++i)
             {
-                const double t = (blockStart + i) * dt;
+                const double t = (blockStart + static_cast<int>(i)) * dt;
 
                 // Advance breakpoint cursor
                 while (st.bpIdx + 1 < bps.size() - 1 && bps[st.bpIdx + 1].time <= t)
@@ -124,7 +124,7 @@ float AmplitudeOps::computePeak(const std::vector<SynthData>& partials)
             }
         }
 
-        for (int i = 0; i < n; ++i)
+        for (size_t i = 0; i < static_cast<size_t>(n); ++i)
             globalPeak = std::max(globalPeak, std::abs(mix[i]));
     }
 
