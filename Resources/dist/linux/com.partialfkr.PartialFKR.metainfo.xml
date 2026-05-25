@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.partialfkr.PartialFKR</id>
+  <name>PartialFKR</name>
+  <summary>Loris-based partial-tracking analysis and resynthesis</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <launchable type="desktop-id">com.partialfkr.PartialFKR.desktop</launchable>
+  <icon type="stock">com.partialfkr.PartialFKR</icon>
+  <developer_name>Matt Comeione</developer_name>
+  <url type="homepage">https://partialfkr.com</url>
+  <description>
+    <p>PartialFKR is a spectral audio editor built on Loris. It analyses sounds into streams of partials and lets you transform them with precision.</p>
+  </description>
+  <provides>
+    <mediatype>application/x-partialfkr</mediatype>
+  </provides>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Audio</category>
+    <category>Music</category>
+  </categories>
+  <keywords>
+    <keyword>audio</keyword>
+    <keyword>synthesis</keyword>
+    <keyword>spectral</keyword>
+    <keyword>loris</keyword>
+    <keyword>partials</keyword>
+  </keywords>
+  <content_rating type="oars-1.1" />
+</component>
