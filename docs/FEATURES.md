@@ -82,13 +82,20 @@ Clipboard holds a snapshot of full `Partial` objects (breakpoints, amplitude, fr
 
 ---
 
-### 4. Undo / Redo
-**Priority: High — should land alongside or before edit operations**
+### 4. Undo / Redo ✅
+**Fully implemented.** `EditHistory` wraps `juce::UndoManager` (30 MB / 200 action limit).
+Cmd+Z / Cmd+Shift+Z registered via `ApplicationCommandManager`. Menu descriptions update
+dynamically. Currently undoable: delete partials, paste, stretch, breakpoint delete, bridge,
+crossfade, fade in/out, scale amplitude.
 
-- **⌘Z** — undo last action
-- **⌘⇧Z** — redo
-- Backed by `EditHistory` / `juce::UndoManager` (already stubbed in `Source/Model/EditHistory`)
-- Undo granularity: per discrete action (click, delete, paste). Slider drags group as a single transaction.
+**Three remaining gaps (non-blocking):**
+- **Drag transaction grouping** — `beginTransaction()` on mouseDown needed when breakpoint
+  drag editing (Feature #7) is implemented, so a full drag gesture is one undo step.
+  Hooks exist in `EditHistory`; wire-up is part of Feature #7.
+- **Dirty flag on undo-to-saved-state** — window title stays dirty even after undoing back
+  to the last-saved version. Minor UX issue.
+- **History clear on re-analysis** — old actions remain on the stack after loading new audio;
+  they fail gracefully but should be cleared explicitly on `Project::analyze()`.
 
 ---
 
@@ -137,19 +144,88 @@ Likely: Option C with a clear undo step, but this should be decided before build
 
 ---
 
-### 7. Breakpoint-Level Selection & Editing
-**Priority: Medium — fine-grained editing, needs design refinement**
+### 7. Breakpoint Drag Editing (Direct Select mode)
+**Priority: Medium**
 
-Analogous to Illustrator's direct selection (white arrow) tool. Within one or more selected partials, individual breakpoints become selectable:
+In Direct Select mode, selected breakpoints (single or multi) can be dragged to modify
+their time position and/or frequency. A "segment" is any contiguous run of selected
+breakpoints within a single partial.
 
-- Small hit-target handles appear on breakpoints when a partial is in "point edit" mode
-- Drag selected breakpoints with:
-  - **Horizontal constraint** (shift): shift in time only
-  - **Vertical constraint** (cmd): shift frequency only
-  - **Free drag**: shift both
-- Multi-select breakpoints across partials
+#### Drag axes
 
-> **Needs more design work** — interaction model (how to enter/exit point-edit mode, handle target sizes at varying zoom levels) to be resolved before implementation.
+| Drag | Behaviour |
+|------|-----------|
+| Free drag (no modifier) | Moves in both time and frequency simultaneously |
+| **Shift** + drag | Locks to dominant axis — horizontal if initial movement is wider than tall, vertical otherwise (Adobe-style) |
+
+#### Horizontal drag — time shift
+
+All selected breakpoints on a partial move by the same time delta (rigid block). Their
+frequency values are preserved. The partial track interpolates naturally between the
+moved selection and its non-selected neighbors.
+
+**Hard constraint per partial (5 ms Loris hop):**
+
+```
+left_limit  = time(nearest non-selected BP to the left)  + 5 ms
+right_limit = time(nearest non-selected BP to the right) - 5 ms - selection_duration
+```
+
+where `selection_duration = time(last selected BP) - time(first selected BP)`.
+
+For a single selected breakpoint `selection_duration = 0`, so:
+
+```
+left_limit  = time(prev BP) + 5 ms
+right_limit = time(next BP) - 5 ms
+```
+
+When breakpoints from multiple partials are selected, each partial enforces its own
+constraint independently. The visual indicator reflects the most restrictive limit
+across all selected partials.
+
+**Example:**
+
+```
+Partial breakpoints:  10 ms | [50 ms  60 ms  70 ms] | 150 ms
+                      ^fixed   ^————selection————^     ^fixed
+
+left_limit  = 10 + 5 = 15 ms  →  max left shift  = 35 ms
+right_limit = 150 - 5 - 20 = 125 ms  →  max right shift = 75 ms
+
+Released at 15 ms:  10 ms | [15 ms  25 ms  35 ms] | 150 ms
+  • 10 ms → 15 ms segment: interpolated from 10 ms freq to (former 50 ms) freq
+  • 35 ms → 150 ms segment: interpolated from (former 70 ms) freq to 150 ms freq
+```
+
+#### Vertical drag — frequency shift
+
+A uniform additive Hz delta is applied to all selected breakpoints, preserving the
+relative frequency shape within the selection. No time movement occurs. Frequencies
+are clamped to > 0 Hz. The partial track interpolates naturally to non-selected
+neighbors on both sides.
+
+#### Constraint visualization
+
+When a horizontal drag begins, faint vertical lines appear at the computed left and
+right time limits (most restrictive across all selected partials). The lines persist
+for the duration of the drag and disappear on mouse release. Style: 1 px, translucent
+white, drawn above the partial canvas layer.
+
+#### Commit and undo
+
+On release the move is committed as a single undoable `MoveBreakpointsAction` that
+records `{ breakpoint_id → (original_time, original_freq) }` and
+`{ breakpoint_id → (new_time, new_freq) }` for every moved breakpoint. Undo restores
+all original positions and frequencies in one step.
+
+#### Implementation notes
+
+- Drag state (delta, axis lock, constraint limits) lives in `PartialView` as transient
+  member state, cleared on `mouseUp`.
+- Constraint lines are drawn in `PartialView::paint()` only when drag state is active,
+  using the current view transform to convert ms → pixel positions.
+- The undoable action class: `Source/Model/MoveBreakpointsAction.{h,cpp}`.
 
 ---
 
@@ -193,6 +269,23 @@ All exporters have stub implementations in `Source/Export/`. These need UI wirin
 - [ ] **SDIF export** — 1TRC or RBEP frame type, via Loris's `SdifFile`
 - [ ] **JSON export** — versioned schema, optional phase/bandwidth fields
 
+### Exporters requiring review
+
+**SuperCollider (.scd) — performance review pending**
+Initial user feedback indicates the generated `.scd` files are very resource-intensive:
+SC struggles to process large partial counts (many `SinOsc` synths + `BufRd` envelopes
+running simultaneously). Similar resource pressure was encountered with the Csound exporter
+and resolved by refining the orchestra structure.
+
+Awaiting further user feedback before implementing changes. Likely directions:
+- Server resource hints at the top of the generated file (`s.options.memSize`,
+  `s.options.numWireBufs`, `s.options.maxNodes`) scaled to the partial count
+- Optionally group partials into buses or use `Mix.ar` to reduce synth overhead
+- Consider a reduced-fidelity mode that merges low-amplitude partials
+
+> **Do not implement yet** — hold for more field reports to understand whether the
+> bottleneck is memory, node count, CPU, or wire buffer exhaustion.
+
 ---
 
 ## Open Design Decisions
@@ -202,6 +295,7 @@ All exporters have stub implementations in `Source/Export/`. These need UI wirin
 | 1 | Destructive shrink handling | Time-range compress (Feature #6) — warn, preview, or rely on undo? |
 | 2 | Point-edit mode entry/exit | Breakpoint selection (Feature #7) — modifier key, double-click, toolbar toggle? |
 | 3 | Scrub modifier key | Temporal scrubbing (Feature #8) — Option, Space+drag, dedicated mode button? |
+| 4 | SC exporter optimization | Resource-intensive output reported by users — awaiting more field reports before deciding approach (server options, bus grouping, partial merging). See Export § "Exporters requiring review". |
 | 4 | Clipboard scope | Application-level singleton (required for cross-document paste, Feature #9). Persists across file loads within a session; does not need to survive app restart. |
 | 5 | Selection highlight colour | Currently white; should differ from muted/soloed state colours |
 | 6 | Output gain UI | Master gain is in the synth but has no knob in the UI yet |
