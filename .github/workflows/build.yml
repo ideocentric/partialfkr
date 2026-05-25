@@ -166,6 +166,13 @@ jobs:
         working-directory: build
         run: cpack -C Release
 
+      - name: Show NSIS log on failure
+        if: failure()
+        run: |
+          $log = Get-ChildItem -Recurse -Filter NSISOutput.log build | Select-Object -First 1
+          if ($log) { Get-Content $log.FullName } else { Write-Host "NSISOutput.log not found" }
+        shell: pwsh
+
       - name: Upload (unsigned — not for distribution)
         uses: actions/upload-artifact@v4
         with:
