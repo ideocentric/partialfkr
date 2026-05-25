@@ -1,5 +1,5 @@
     cmake_minimum_required(VERSION 3.22)
-project(PartialFKR VERSION 0.1.0)
+project(PartialFKR VERSION 0.1.1)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -69,7 +69,7 @@ endif()
 
 juce_add_gui_app(PartialFKR
     PRODUCT_NAME  "PartialFKR"
-    VERSION       "0.1.0"
+    VERSION       "0.1.1"
     BUNDLE_ID     "com.ideocentric.PartialFKR"
     COMPANY_NAME  "ideocentric"
     ICON_BIG      "${_app_icon}"
@@ -303,10 +303,10 @@ set(CPACK_INSTALL_CMAKE_PROJECTS "${CMAKE_CURRENT_BINARY_DIR};${PROJECT_NAME};Ap
 
 set(CPACK_PACKAGE_NAME             "PartialFKR")
 set(CPACK_PACKAGE_VENDOR           "ideocentric")
-set(CPACK_PACKAGE_VERSION          "0.1.0")
+set(CPACK_PACKAGE_VERSION          "0.1.1")
 set(CPACK_PACKAGE_VERSION_MAJOR    "0")
 set(CPACK_PACKAGE_VERSION_MINOR    "1")
-set(CPACK_PACKAGE_VERSION_PATCH    "0")
+set(CPACK_PACKAGE_VERSION_PATCH    "1")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
     "Loris-based spectral audio editor and resynthesizer")
 set(CPACK_PACKAGE_HOMEPAGE_URL     "https://github.com/ideocentric/partialfkr")
@@ -324,8 +324,8 @@ if(APPLE)
         COMMAND bash
             "${CMAKE_SOURCE_DIR}/packaging/macos/make-dmg.sh"
             "$<TARGET_BUNDLE_DIR:PartialFKR>"
-            "${CMAKE_BINARY_DIR}/PartialFKR-0.1.0-macOS.dmg"
-        COMMENT "Creating PartialFKR-0.1.0-macOS.dmg"
+            "${CMAKE_BINARY_DIR}/PartialFKR-0.1.1-macOS.dmg"
+        COMMENT "Creating PartialFKR-0.1.1-macOS.dmg"
         VERBATIM
     )
 endif()
@@ -363,9 +363,9 @@ if(WIN32)
     set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS
         "!include \\\"${_fileassoc_uninstall_nsh}\\\"")
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64")
-        set(CPACK_PACKAGE_FILE_NAME "PartialFKR-0.1.0-Windows-arm64")
+        set(CPACK_PACKAGE_FILE_NAME "PartialFKR-0.1.1-Windows-arm64")
     else()
-        set(CPACK_PACKAGE_FILE_NAME "PartialFKR-0.1.0-Windows-x64")
+        set(CPACK_PACKAGE_FILE_NAME "PartialFKR-0.1.1-Windows-x64")
     endif()
 endif()
 
@@ -390,7 +390,7 @@ if(UNIX AND NOT APPLE)
     set(CPACK_DEBIAN_PACKAGE_HOMEPAGE
         "https://github.com/ideocentric/partialfkr")
     set(CPACK_DEBIAN_FILE_NAME
-        "PartialFKR-0.1.0-Linux-${_deb_arch}.deb")
+        "PartialFKR-0.1.1-Linux-${_deb_arch}.deb")
     set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
         "${CMAKE_SOURCE_DIR}/packaging/linux/postinst"
         "${CMAKE_SOURCE_DIR}/packaging/linux/postrm")
@@ -403,7 +403,7 @@ if(UNIX AND NOT APPLE)
     set(CPACK_RPM_PACKAGE_URL
         "https://github.com/ideocentric/partialfkr")
     set(CPACK_RPM_FILE_NAME
-        "PartialFKR-0.1.0-Linux-${_rpm_arch}.rpm")
+        "PartialFKR-0.1.1-Linux-${_rpm_arch}.rpm")
     set(CPACK_RPM_POST_INSTALL_SCRIPT_FILE
         "${CMAKE_SOURCE_DIR}/packaging/linux/postinst")
     set(CPACK_RPM_POST_UNINSTALL_SCRIPT_FILE

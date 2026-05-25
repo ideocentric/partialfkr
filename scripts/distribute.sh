@@ -64,6 +64,7 @@ cmake -B "${BUILD_DIR}" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
     -DPFKR_CODESIGN=ON \
+    -DPFKR_SIGN_IDENTITY="${CODESIGN_IDENTITY}" \
     "${REPO_ROOT}"
 ninja -C "${BUILD_DIR}" PartialFKR
 
