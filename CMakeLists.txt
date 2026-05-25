@@ -339,27 +339,20 @@ if(WIN32)
         "${CMAKE_SOURCE_DIR}/Resources/dist/windows/PartialFKR.ico")
     set(CPACK_NSIS_MUI_UNIICON
         "${CMAKE_SOURCE_DIR}/Resources/dist/windows/PartialFKR.ico")
-    set(CPACK_NSIS_INSTALLED_ICON_NAME "bin\\PartialFKR.exe")
+    # CPACK_NSIS_INSTALLED_ICON_NAME: four backslashes → two after CMake parse →
+    # CPack writes two (unescaped) → CMake re-reads as one → NSIS gets bin\PartialFKR.exe
+    set(CPACK_NSIS_INSTALLED_ICON_NAME "bin\\\\PartialFKR.exe")
     set(CPACK_NSIS_HELP_LINK       "https://github.com/ideocentric/partialfkr")
     set(CPACK_NSIS_URL_INFO_ABOUT  "https://github.com/ideocentric/partialfkr")
     set(CPACK_NSIS_MODIFY_PATH     OFF)
-    # Register .pfkr extension.
-    # Backslashes are doubled because CPack writes bracket-string content into
-    # CPackConfig.cmake as an unescaped quoted string. When CMake re-reads that
-    # file, each \\ becomes the single \ that NSIS needs in registry paths.
-    set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS [=[
-WriteRegStr HKCR ".pfkr" "" "PartialFKR.Project"
-WriteRegStr HKCR "PartialFKR.Project" "" "PartialFKR Project"
-WriteRegStr HKCR "PartialFKR.Project\\DefaultIcon" "" "$INSTDIR\\bin\\PartialFKR.exe,0"
-WriteRegStr HKCR "PartialFKR.Project\\shell" "" ""
-WriteRegStr HKCR "PartialFKR.Project\\shell\\open" "" ""
-WriteRegStr HKCR "PartialFKR.Project\\shell\\open\\command" "" '"$INSTDIR\\bin\\PartialFKR.exe" "%1"'
-System::Call 'Shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
-]=])
-    set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS [=[
-DeleteRegKey HKCR ".pfkr"
-DeleteRegKey HKCR "PartialFKR.Project"
-]=])
+    # Register .pfkr extension via external .nsh files so NSIS commands with
+    # backslashes and embedded quotes never pass through CMake string escaping.
+    # CMAKE_SOURCE_DIR is expanded at configure time; forward slashes are fine
+    # for NSIS !include on Windows.
+    set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS
+        "!include \\\"${CMAKE_SOURCE_DIR}/packaging/windows/fileassoc.nsh\\\"")
+    set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS
+        "!include \\\"${CMAKE_SOURCE_DIR}/packaging/windows/fileassoc_uninstall.nsh\\\"")
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64")
         set(CPACK_PACKAGE_FILE_NAME "PartialFKR-0.1.0-Windows-arm64")
     else()
