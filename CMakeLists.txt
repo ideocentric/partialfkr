@@ -347,12 +347,21 @@ if(WIN32)
     set(CPACK_NSIS_MODIFY_PATH     OFF)
     # Register .pfkr extension via external .nsh files so NSIS commands with
     # backslashes and embedded quotes never pass through CMake string escaping.
-    # CMAKE_SOURCE_DIR is expanded at configure time; forward slashes are fine
-    # for NSIS !include on Windows.
+    # NSIS requires native backslashes in !include paths; file(TO_NATIVE_PATH)
+    # converts forward slashes, then string(REPLACE) doubles each backslash so
+    # they survive the CPack -> CPackConfig.cmake -> re-read chain intact.
+    file(TO_NATIVE_PATH
+        "${CMAKE_SOURCE_DIR}/packaging/windows/fileassoc.nsh"
+        _fileassoc_nsh)
+    file(TO_NATIVE_PATH
+        "${CMAKE_SOURCE_DIR}/packaging/windows/fileassoc_uninstall.nsh"
+        _fileassoc_uninstall_nsh)
+    string(REPLACE "\\" "\\\\" _fileassoc_nsh "${_fileassoc_nsh}")
+    string(REPLACE "\\" "\\\\" _fileassoc_uninstall_nsh "${_fileassoc_uninstall_nsh}")
     set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS
-        "!include \\\"${CMAKE_SOURCE_DIR}/packaging/windows/fileassoc.nsh\\\"")
+        "!include \\\"${_fileassoc_nsh}\\\"")
     set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS
-        "!include \\\"${CMAKE_SOURCE_DIR}/packaging/windows/fileassoc_uninstall.nsh\\\"")
+        "!include \\\"${_fileassoc_uninstall_nsh}\\\"")
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64")
         set(CPACK_PACKAGE_FILE_NAME "PartialFKR-0.1.0-Windows-arm64")
     else()
