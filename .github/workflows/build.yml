@@ -17,6 +17,9 @@ on:
 #             For a distributable release, sign with signtool after obtaining
 #             an Authenticode certificate (see docs/DISTRIBUTION.md).
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   # ── macOS ─────────────────────────────────────────────────────────────────────
   # Produces a universal binary (arm64 + x86_64) and verifies the DMG layout.
@@ -45,9 +48,6 @@ jobs:
 
       - name: Build
         run: cmake --build build --parallel
-
-      - name: Install dmgbuild
-        run: pip3 install --break-system-packages dmgbuild
 
       - name: Package
         run: cmake --build build --target dmg
