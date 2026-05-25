@@ -1,0 +1,115 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+# Linux packages and the user manual PDF are uploaded to the draft release automatically.
+# The macOS notarized DMG must be built and uploaded locally — see docs/DISTRIBUTION.md.
+# Publish the draft release on GitHub after uploading the macOS DMG.
+
+permissions:
+  contents: write
+
+jobs:
+  # ── Create draft release ──────────────────────────────────────────────────────
+  create-release:
+    name: Create draft release
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.vars.outputs.tag }}
+    steps:
+      - id: vars
+        run: echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "${{ steps.vars.outputs.tag }}" \
+            --draft \
+            --title "PartialFKR ${{ steps.vars.outputs.tag }}" \
+            --generate-notes
+
+  # ── User manual ──────────────────────────────────────────────────────────────
+  # Uploads docs/MANUAL.pdf to the draft release immediately after it is created.
+  upload-manual:
+    name: Upload user manual
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Upload user manual to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release upload "${{ needs.create-release.outputs.tag }}" \
+            docs/MANUAL.pdf \
+            --clobber
+
+  # ── Linux packages ────────────────────────────────────────────────────────────
+  # Builds .deb and .rpm for x86_64 and arm64, uploads directly to the draft release.
+  build-linux:
+    name: Linux ${{ matrix.arch }}
+    needs: create-release
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            arch: x86_64
+          - runner: ubuntu-22.04-arm
+            arch: arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ninja-build \
+            rpm \
+            libasound2-dev \
+            libx11-dev \
+            libxinerama-dev \
+            libxrandr-dev \
+            libxcursor-dev \
+            libxext-dev \
+            libfreetype6-dev \
+            libfontconfig1-dev \
+            libglu1-mesa-dev \
+            libgl1-mesa-dev \
+            mesa-common-dev \
+            libgtk-3-dev
+
+      - name: Cache build dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: linux-${{ matrix.arch }}-deps-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: linux-${{ matrix.arch }}-deps-
+
+      - name: Configure
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Package
+        working-directory: build
+        run: cpack
+
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ needs.create-release.outputs.tag }}" \
+            build/PartialFKR-*.deb \
+            build/PartialFKR-*.rpm \
+            --clobber

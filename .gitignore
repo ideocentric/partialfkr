@@ -76,6 +76,9 @@ third_party/Catch2/
 
 _CPack_Packages/
 
+# ── Python packaging venv (bootstrapped automatically by make-dmg.sh) ─────────
+packaging/macos/.venv/
+
 # ── Code signing / distribution ───────────────────────────────────────────────
 # .env holds notarization secrets — NEVER commit (copy from .env.example)
 .env

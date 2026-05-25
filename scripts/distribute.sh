@@ -4,7 +4,7 @@
 # Prerequisites:
 #   - Xcode Command Line Tools (codesign, xcrun notarytool, stapler)
 #   - CMake + Ninja
-#   - dmgbuild: pip3 install dmgbuild
+#   - Python 3 (for dmgbuild — venv bootstrapped automatically by make-dmg.sh)
 #
 # Credentials — copy .env.example to .env and fill in all four values:
 #   CODESIGN_IDENTITY   — Developer ID Application certificate identity string
@@ -38,11 +38,6 @@ if [[ ! -f "${NOTARY_KEY_FILE}" ]]; then
     exit 1
 fi
 
-if ! command -v dmgbuild &>/dev/null; then
-    echo "ERROR: dmgbuild not found. Install with: pip3 install dmgbuild"
-    exit 1
-fi
-
 # ── Paths ─────────────────────────────────────────────────────────────────────
 BUILD_DIR="${REPO_ROOT}/build-release"
 APP_PATH="${BUILD_DIR}/PartialFKR_artefacts/Release/PartialFKR.app"
@@ -52,6 +47,8 @@ VERSION=$(grep -m1 'project(PartialFKR VERSION' "${REPO_ROOT}/CMakeLists.txt" \
 DMG_PATH="${BUILD_DIR}/PartialFKR-${VERSION}-macOS.dmg"
 STAGING_ZIP="${REPO_ROOT}/PartialFKR-staging.zip"
 
+MANUAL_PDF="${REPO_ROOT}/docs/MANUAL.pdf"
+
 echo "==> PartialFKR ${VERSION} — distribution build"
 echo "    Identity: ${CODESIGN_IDENTITY}"
 echo "    App:      ${APP_PATH}"
@@ -59,7 +56,7 @@ echo "    DMG:      ${DMG_PATH}"
 echo ""
 
 # ── 1. Build Release ──────────────────────────────────────────────────────────
-echo "[1/6] Building Release (universal binary)..."
+echo "[1/7] Building Release (universal binary)..."
 cmake -B "${BUILD_DIR}" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
@@ -69,12 +66,12 @@ cmake -B "${BUILD_DIR}" -G Ninja \
 ninja -C "${BUILD_DIR}" PartialFKR
 
 # ── 2. Verify signature ───────────────────────────────────────────────────────
-echo "[2/6] Verifying app signature..."
+echo "[2/7] Verifying app signature..."
 codesign --verify --deep --strict --verbose=2 "${APP_PATH}"
 spctl --assess --type exec --verbose "${APP_PATH}"
 
 # ── 3. Notarize the app ───────────────────────────────────────────────────────
-echo "[3/6] Notarizing app..."
+echo "[3/7] Notarizing app..."
 ditto -c -k --keepParent "${APP_PATH}" "${STAGING_ZIP}"
 
 xcrun notarytool submit "${STAGING_ZIP}" \
@@ -87,13 +84,13 @@ xcrun notarytool submit "${STAGING_ZIP}" \
 rm -f "${STAGING_ZIP}"
 
 # ── 4. Staple notarization ticket to the app ─────────────────────────────────
-echo "[4/6] Stapling app..."
+echo "[4/7] Stapling app..."
 xcrun stapler staple "${APP_PATH}"
 xcrun stapler validate "${APP_PATH}"
 
 # ── 5. Create and sign DMG ───────────────────────────────────────────────────
 # The app is fully notarized and stapled before being placed in the DMG.
-echo "[5/6] Creating DMG..."
+echo "[5/7] Creating DMG..."
 cmake --build "${BUILD_DIR}" --target dmg
 
 codesign \
@@ -102,7 +99,7 @@ codesign \
     "${DMG_PATH}"
 
 # ── 6. Notarize and staple the DMG ───────────────────────────────────────────
-echo "[6/6] Notarizing DMG..."
+echo "[6/7] Notarizing DMG..."
 xcrun notarytool submit "${DMG_PATH}" \
     --key     "${NOTARY_KEY_FILE}" \
     --key-id  "${NOTARY_KEY_ID}" \
@@ -113,6 +110,21 @@ xcrun notarytool submit "${DMG_PATH}" \
 xcrun stapler staple "${DMG_PATH}"
 xcrun stapler validate "${DMG_PATH}"
 
+# ── 7. Upload to GitHub release ───────────────────────────────────────────────
+echo "[7/7] Uploading to GitHub release v${VERSION}..."
+
+UPLOAD_ARGS=("${DMG_PATH}")
+if [[ -f "${MANUAL_PDF}" ]]; then
+    UPLOAD_ARGS+=("${MANUAL_PDF}")
+else
+    echo "WARNING: ${MANUAL_PDF} not found — skipping manual upload"
+fi
+
+gh release upload "v${VERSION}" "${UPLOAD_ARGS[@]}" --clobber
+
 echo ""
 echo "Done: ${DMG_PATH}"
-echo "This DMG is signed, notarized, and stapled — ready for distribution."
+echo "Uploaded to GitHub release v${VERSION}."
+echo ""
+echo "Review the draft and publish when ready:"
+echo "  gh release view v${VERSION} --web"

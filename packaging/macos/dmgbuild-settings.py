@@ -18,7 +18,7 @@ show_pathbar    = False
 show_sidebar    = False
 sidebar_width   = 0
 
-window_rect    = ((100, 100), (600, 360))
+window_rect    = ((980, 526), (600, 388))
 default_view   = 'icon-view'
 show_icon_preview = False
 icon_size      = 64

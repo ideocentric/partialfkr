@@ -15,8 +15,43 @@ For day-to-day build instructions see [`CONTRIBUTING.md`](../CONTRIBUTING.md).
 | Xcode Command Line Tools | `xcode-select --install` | `codesign`, `xcrun notarytool`, `stapler` |
 | CMake 3.22+ | `brew install cmake` | Build system |
 | Ninja | `brew install ninja` | Build generator |
-| Python 3 | system or `brew install python3` | Required for `dmgbuild` |
-| dmgbuild | `pip3 install dmgbuild` | DMG creation — no AppleScript, no Finder |
+| Python 3.8+ with `venv` | system or `brew install python3` | `dmgbuild` packaging — `python3 -m venv` must be available |
+| GitHub CLI | `brew install gh` + `gh auth login` | Uploading DMG and manual to the GitHub release |
+
+No manual `pip install` is required. The first DMG build creates a self-contained venv at
+`packaging/macos/.venv/` and installs all Python dependencies automatically.
+To rebuild the venv from scratch (e.g. after a Python upgrade or a corrupted install):
+```bash
+rm -rf packaging/macos/.venv
+cmake --build <build-dir> --target dmg   # re-bootstraps on next run
+```
+
+### Python packaging environment
+
+DMG creation depends on [dmgbuild](https://github.com/al45tair/dmgbuild), a Python tool that
+builds the DMG layout programmatically without AppleScript or Finder.
+
+The toolchain is fully self-contained:
+
+| Path | Purpose |
+|------|---------|
+| `packaging/macos/.venv/` | Local venv — gitignored, never committed |
+| `packaging/macos/requirements.txt` | Pinned dependencies (`dmgbuild~=1.6`) |
+| `packaging/macos/make-dmg.sh` | Bootstrap script — creates venv and runs dmgbuild |
+
+**Bootstrap** happens automatically the first time `cmake --build ... --target dmg` is run:
+1. `python3 -m venv packaging/macos/.venv/` creates the isolated environment
+2. `pip install -r requirements.txt` installs the pinned dmgbuild version
+3. `dmgbuild/core.py` is patched to pass `-verbose -debug` to every `hdiutil` call (see [Troubleshooting](#troubleshooting) below)
+
+The venv's Python is used for all subsequent DMG builds — the system Python, Homebrew Python,
+conda, or pyenv installations are never touched.
+
+**Rebuilding the venv** — if dmgbuild behaves unexpectedly or you upgrade Python:
+```bash
+rm -rf packaging/macos/.venv
+cmake --build <build-dir> --target dmg   # re-bootstraps cleanly
+```
 
 ### Credentials
 
@@ -83,7 +118,7 @@ cp .env.example .env        # fill in your credentials
 ./scripts/distribute.sh
 ```
 
-The script runs six steps:
+The script runs seven steps:
 
 1. **Build** — Release universal binary (`arm64;x86_64`) via CMake + Ninja into `build-release/`
 2. **Verify** — `codesign --verify` + `spctl --assess` confirm the app is properly signed
@@ -92,22 +127,22 @@ The script runs six steps:
 5. **Package** — `cmake --build build-release --target dmg` places the stapled `.app` into the DMG,
    then `codesign` signs the DMG itself
 6. **Notarize DMG** — submits the signed DMG to the notary service, waits, then staples the ticket
+7. **Upload** — uploads the signed DMG and `docs/MANUAL.pdf` to the GitHub draft release via `gh`
 
 The app is fully notarized and stapled **before** it is placed in the DMG. Both the `.app` and
 the DMG carry independent notarization tickets, ensuring Gatekeeper passes cleanly in all
 download scenarios.
 
-Output: `build-release/PartialFKR-0.1.0-macOS.dmg`
+Output: `build-release/PartialFKR-<version>-macOS.dmg`
 
 ### Testing the DMG without signing
 
 For local testing:
 ```bash
-pip3 install dmgbuild          # one-time
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
-cmake --build build --target dmg
-open build/PartialFKR-0.1.0-macOS.dmg
+cmake --build build --target dmg   # bootstraps packaging/macos/.venv/ on first run
+open build/PartialFKR-<version>-macOS.dmg
 ```
 
 CI also produces an unsigned DMG artifact (`PartialFKR-macOS-CI-unsigned`) on every push to
@@ -120,7 +155,54 @@ Version is set in one place: `project(PartialFKR VERSION x.y.z)` in `CMakeLists.
 Update it before running the distribution script; the DMG filename and installer metadata
 are derived from it automatically.
 
+Tag and push the new version:
+```bash
+git tag -a v0.1.1 -m "v0.1.1"
+git push origin master
+git push origin v0.1.1
+```
+
+Pushing the tag triggers `.github/workflows/release.yml`, which creates a **draft release**
+and automatically builds and attaches the Linux `.deb` and `.rpm` packages.
+
+Run the distribution script to build, notarize, and upload the macOS DMG:
+```bash
+./scripts/distribute.sh
+```
+This produces `build-release/PartialFKR-<version>-macOS.dmg` (signed, notarized, stapled) and
+uploads it along with `docs/MANUAL.pdf` to the GitHub draft release automatically.
+
+Then open the release on GitHub, review the auto-generated notes, and click **Publish release**:
+```bash
+gh release view v0.1.1 --web
+```
+
 ### Troubleshooting
+
+**hdiutil hangs during DMG creation**
+`hdiutil` is known to hang on certain macOS versions, most often during the `convert` step
+(compressing the read-write image to the final UDZO). To aid diagnosis, `-verbose -debug` is
+automatically injected into every `hdiutil` call via the dmgbuild patch applied at venv
+bootstrap. This diagnostic output flows directly to the terminal — it is not captured by
+dmgbuild — so it appears inline in the cmake build output.
+
+To capture the full output to a file for analysis:
+```bash
+cmake --build <build-dir> --target dmg 2>&1 | tee ~/dmg-build.log
+```
+Or when running the full distribution script:
+```bash
+./scripts/distribute.sh 2>&1 | tee ~/distribute-$(date +%Y%m%d-%H%M%S).log
+```
+
+The last line printed before a hang identifies the blocking `hdiutil` operation. To isolate
+whether `hdiutil` itself is the issue — independent of the app bundle and dmgbuild — run the
+standalone smoke test:
+```bash
+bash packaging/macos/test-hdiutil.sh 2>&1 | tee ~/hdiutil-test.log
+```
+This runs `create`, `convert`, and `attach`/`detach` on a trivial scratch image and reports
+which phase (if any) stalls.
 
 **Notarization rejected**
 Check the log URL printed by `notarytool`. Common causes: missing hardened runtime entitlements,
@@ -159,7 +241,7 @@ NSIS is required for packaging (`winget install NSIS.NSIS`).
 cmake -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release --parallel
 cd build && cpack -C Release
-# Output: PartialFKR-0.1.0-Windows-x86_64.exe
+# Output: PartialFKR-<version>-Windows-x86_64.exe
 ```
 
 ### When ready: SignPath.io
