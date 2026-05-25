@@ -16,45 +16,34 @@ See [`docs/DESIGN.md`](docs/DESIGN.md) for full design rationale.
 
 ## Requirements
 
-- macOS 11.0+ (Apple Silicon or Intel)
-- Xcode 14+ with Command Line Tools
-- CMake 3.22+
-- Ninja (`brew install ninja`)
+- **macOS** 11.0+ — Xcode 14+ Command Line Tools, CMake 3.22+, Ninja
+- **Linux** — CMake 3.22+, Ninja, ALSA/GTK/GL dev headers (see [CONTRIBUTING.md](CONTRIBUTING.md))
+- **Windows** — Visual Studio 2022 with C++ workload, CMake 3.22+
+
+JUCE and Catch2 are fetched automatically at configure time. Loris is vendored.
 
 ## Build
 
 ```bash
 git clone <repo> partialfkr && cd partialfkr
-mkdir build && cd build
-cmake -G Ninja -DCMAKE_BUILD_TYPE=Debug ..
-ninja
+cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
 ```
 
 Run the app:
 
 ```bash
-./PartialEditor_artefacts/Debug/PartialEditor.app/Contents/MacOS/PartialEditor
+open build/PartialFKR_artefacts/Debug/PartialFKR.app   # macOS
+./build/PartialFKR_artefacts/Release/PartialFKR         # Linux
 ```
 
-Release build:
-
-```bash
-cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ..
-ninja
-```
-
-Universal binary (arm64 + x86_64):
-
-```bash
-cmake -G Ninja -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" ..
-ninja
-```
+See [CONTRIBUTING.md](CONTRIBUTING.md) for release builds, universal binaries, Windows,
+packaging, and signing.
 
 ## Run tests
 
 ```bash
-ctest --output-on-failure
+ctest --test-dir build --output-on-failure
 ```
 
 ## Project status

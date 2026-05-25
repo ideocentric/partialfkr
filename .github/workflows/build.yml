@@ -5,9 +5,24 @@ on:
     branches: [master]
   pull_request:
 
+# ── Artifact note ──────────────────────────────────────────────────────────────
+# CI artifacts are for contributor testing only — they are NOT distribution builds.
+#
+#   macOS   — unsigned, unnotarized DMG. Verifies the build and DMG layout.
+#             For a distributable release use scripts/distribute.sh locally.
+#
+#   Linux   — signed .deb and .rpm packages. These ARE ready for distribution.
+#
+#   Windows — unsigned NSIS installer. Verifies the packaging flow only.
+#             For a distributable release, sign with signtool after obtaining
+#             an Authenticode certificate (see docs/DISTRIBUTION.md).
+
 jobs:
   # ── macOS ─────────────────────────────────────────────────────────────────────
-  # Produces a single universal binary (arm64 + x86_64) via -DCMAKE_OSX_ARCHITECTURES.
+  # Produces a universal binary (arm64 + x86_64) and verifies the DMG layout.
+  # The artifact is unsigned and unnotarized — not for end-user distribution.
+  # For a signed, notarized release DMG run scripts/distribute.sh locally
+  # with a configured .env (see .env.example).
   build-macos:
     name: macOS (universal)
     runs-on: macos-14
@@ -31,14 +46,22 @@ jobs:
       - name: Build
         run: cmake --build build --parallel
 
-      - name: Upload artifact
+      - name: Install dmgbuild
+        run: pip3 install dmgbuild
+
+      - name: Package
+        run: cmake --build build --target dmg
+
+      - name: Upload (unsigned — not for distribution)
         uses: actions/upload-artifact@v4
         with:
-          name: PartialFKR-macOS-universal
-          path: build/PartialFKR.app
+          name: PartialFKR-macOS-CI-unsigned
+          path: build/PartialFKR-*.dmg
+          if-no-files-found: error
 
   # ── Linux ─────────────────────────────────────────────────────────────────────
-  # Two native runners: one x86_64, one arm64. Same steps, different runner.
+  # Two native runners (x86_64 + arm64). Each produces a .deb and .rpm via CPack.
+  # These artifacts ARE suitable for distribution.
   build-linux:
     strategy:
       fail-fast: false
@@ -55,11 +78,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install JUCE system dependencies
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             ninja-build \
+            rpm \
             libasound2-dev \
             libx11-dev \
             libxinerama-dev \
@@ -86,15 +110,24 @@ jobs:
       - name: Build
         run: cmake --build build --parallel
 
-      - name: Upload artifact
+      - name: Package
+        working-directory: build
+        run: cpack
+
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: PartialFKR-Linux-${{ matrix.arch }}
-          path: build/PartialFKR
+          name: PartialFKR-Linux-${{ matrix.arch }}-packages
+          path: |
+            build/PartialFKR-*.deb
+            build/PartialFKR-*.rpm
+          if-no-files-found: error
 
   # ── Windows ───────────────────────────────────────────────────────────────────
-  # Uses the Visual Studio generator so MSVC environment setup is automatic.
-  # windows-11-arm provides a native ARM64 host; -A ARM64 targets it directly.
+  # Uses the Visual Studio generator. Each arch produces an NSIS .exe installer.
+  # The artifact is unsigned — not for end-user distribution.
+  # For a signed release installer, sign with signtool.exe after acquiring an
+  # Authenticode certificate (see docs/DISTRIBUTION.md § Windows).
   build-windows:
     strategy:
       fail-fast: false
@@ -126,8 +159,13 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel
 
-      - name: Upload artifact
+      - name: Package
+        working-directory: build
+        run: cpack -C Release
+
+      - name: Upload (unsigned — not for distribution)
         uses: actions/upload-artifact@v4
         with:
-          name: PartialFKR-Windows-${{ matrix.name }}
-          path: build/Release/PartialFKR.exe
+          name: PartialFKR-Windows-${{ matrix.name }}-CI-unsigned
+          path: build/PartialFKR-*.exe
+          if-no-files-found: error

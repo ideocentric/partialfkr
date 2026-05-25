@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=PartialFKR
+GenericName=Spectral Audio Editor
+Comment=Loris-based partial-tracking analysis and resynthesis
+Exec=partialfkr %F
+Icon=com.partialfkr.PartialFKR
+Terminal=false
+Categories=AudioVideo;Audio;Music;
+Keywords=audio;synthesis;spectral;loris;partials;
+StartupNotify=true
+StartupWMClass=partialfkr
+MimeType=application/x-partialfkr;

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.22)
+    cmake_minimum_required(VERSION 3.22)
 project(PartialFKR VERSION 0.1.0)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -60,11 +60,11 @@ endif()
 # ── Platform-specific application icon ───────────────────────────────────────
 if(APPLE)
     # Pass .icns directly — JUCE uses it as the app bundle icon without conversion.
-    set(_app_icon "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icons/PartialFKR.icns")
+    set(_app_icon "${CMAKE_CURRENT_SOURCE_DIR}/Resources/dist/macos/PartialFKR.icns")
 else()
     # juceaide reads ICON_BIG as a PNG and generates the platform icon (.ico on
-    # Windows, unused on Linux). Pass the PNG on all non-Apple platforms.
-    set(_app_icon "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icons/PartialFKR_512.png")
+    # Windows, unused on Linux). Pass the 512px PNG from the iconsmaker dist tree.
+    set(_app_icon "${CMAKE_CURRENT_SOURCE_DIR}/Resources/dist/linux/hicolor/512x512/apps/com.partialfkr.PartialFKR.png")
 endif()
 
 juce_add_gui_app(PartialFKR
@@ -109,7 +109,7 @@ if(APPLE)
         COMMAND /usr/libexec/PlistBuddy -c "Add :UTExportedTypeDeclarations:0:UTTypeTagSpecification:public.filename-extension:0 string pfkr" "${_plist}"
         # juceaide creates a stub Icon.icns when given a pre-built .icns — overwrite it with the real file
         COMMAND ${CMAKE_COMMAND} -E copy
-            "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icons/PartialFKR.icns"
+            "${CMAKE_CURRENT_SOURCE_DIR}/Resources/dist/macos/PartialFKR.icns"
             "$<TARGET_BUNDLE_DIR:PartialFKR>/Contents/Resources/Icon.icns"
     )
 
@@ -265,3 +265,145 @@ target_link_libraries(PartialFKRTests
 include(CTest)
 include(Catch)
 catch_discover_tests(PartialFKRTests)
+
+# ── Install rules ─────────────────────────────────────────────────────────────
+include(GNUInstallDirs)
+
+if(APPLE)
+    install(TARGETS PartialFKR
+        BUNDLE DESTINATION .
+        COMPONENT Application)
+elseif(WIN32)
+    install(TARGETS PartialFKR
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        COMPONENT Application)
+else()
+    install(TARGETS PartialFKR
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        COMPONENT Application)
+    install(DIRECTORY "${CMAKE_SOURCE_DIR}/Resources/dist/linux/hicolor/"
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/icons/hicolor"
+        COMPONENT Application)
+    install(FILES
+        "${CMAKE_SOURCE_DIR}/Resources/dist/linux/com.partialfkr.PartialFKR.desktop"
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/applications"
+        COMPONENT Application)
+    install(FILES
+        "${CMAKE_SOURCE_DIR}/Resources/dist/linux/com.partialfkr.PartialFKR.metainfo.xml"
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/metainfo"
+        COMPONENT Application)
+endif()
+
+# ── CPack ─────────────────────────────────────────────────────────────────────
+# Only package our Application component. Without this, CPACK defaults to ALL,
+# which pulls in JUCE's Unspecified component: juceaide, all module headers,
+# and cmake configs — none of which belong in a distributable DMG/DEB/RPM.
+set(CPACK_COMPONENTS_ALL Application)
+set(CPACK_INSTALL_CMAKE_PROJECTS "${CMAKE_CURRENT_BINARY_DIR};${PROJECT_NAME};Application;/")
+
+set(CPACK_PACKAGE_NAME             "PartialFKR")
+set(CPACK_PACKAGE_VENDOR           "ideocentric")
+set(CPACK_PACKAGE_VERSION          "0.1.0")
+set(CPACK_PACKAGE_VERSION_MAJOR    "0")
+set(CPACK_PACKAGE_VERSION_MINOR    "1")
+set(CPACK_PACKAGE_VERSION_PATCH    "0")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
+    "Loris-based spectral audio editor and resynthesizer")
+set(CPACK_PACKAGE_HOMEPAGE_URL     "https://github.com/ideocentric/partialfkr")
+set(CPACK_RESOURCE_FILE_LICENSE    "${CMAKE_SOURCE_DIR}/LICENSE")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "PartialFKR")
+
+# ── macOS: custom dmg target ─────────────────────────────────────────────────
+# Uses dmgbuild (pip install dmgbuild) instead of CPack's DragNDrop generator.
+# dmgbuild writes the .DS_Store programmatically — no AppleScript, no Finder,
+# no Applications symlink in the source tree (safe for CLion and CI runners).
+# Layout is defined in packaging/macos/dmgbuild-settings.py.
+if(APPLE)
+    add_custom_target(dmg
+        DEPENDS PartialFKR
+        COMMAND bash
+            "${CMAKE_SOURCE_DIR}/packaging/macos/make-dmg.sh"
+            "$<TARGET_BUNDLE_DIR:PartialFKR>"
+            "${CMAKE_BINARY_DIR}/PartialFKR-0.1.0-macOS.dmg"
+        COMMENT "Creating PartialFKR-0.1.0-macOS.dmg"
+        VERBATIM
+    )
+endif()
+
+# ── Windows: NSIS installer (.exe) ───────────────────────────────────────────
+if(WIN32)
+    set(CPACK_GENERATOR            "NSIS")
+    set(CPACK_NSIS_PACKAGE_NAME    "PartialFKR")
+    set(CPACK_NSIS_DISPLAY_NAME    "PartialFKR")
+    set(CPACK_NSIS_MUI_ICON
+        "${CMAKE_SOURCE_DIR}/Resources/dist/windows/PartialFKR.ico")
+    set(CPACK_NSIS_MUI_UNIICON
+        "${CMAKE_SOURCE_DIR}/Resources/dist/windows/PartialFKR.ico")
+    set(CPACK_NSIS_INSTALLED_ICON_NAME "bin\\PartialFKR.exe")
+    set(CPACK_NSIS_HELP_LINK       "https://github.com/ideocentric/partialfkr")
+    set(CPACK_NSIS_URL_INFO_ABOUT  "https://github.com/ideocentric/partialfkr")
+    set(CPACK_NSIS_MODIFY_PATH     OFF)
+    # Register .pfkr extension. Bracket string passes NSIS variables ($INSTDIR)
+    # verbatim — no CMake escape processing inside [=[ ... ]=].
+    set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS [=[
+WriteRegStr HKCR ".pfkr" "" "PartialFKR.Project"
+WriteRegStr HKCR "PartialFKR.Project" "" "PartialFKR Project"
+WriteRegStr HKCR "PartialFKR.Project\DefaultIcon" "" "$INSTDIR\bin\PartialFKR.exe,0"
+WriteRegStr HKCR "PartialFKR.Project\shell" "" ""
+WriteRegStr HKCR "PartialFKR.Project\shell\open" "" ""
+WriteRegStr HKCR "PartialFKR.Project\shell\open\command" "" '"$INSTDIR\bin\PartialFKR.exe" "%1"'
+System::Call 'Shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
+]=])
+    set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS [=[
+DeleteRegKey HKCR ".pfkr"
+DeleteRegKey HKCR "PartialFKR.Project"
+]=])
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|aarch64")
+        set(CPACK_PACKAGE_FILE_NAME "PartialFKR-0.1.0-Windows-arm64")
+    else()
+        set(CPACK_PACKAGE_FILE_NAME "PartialFKR-0.1.0-Windows-x64")
+    endif()
+endif()
+
+# ── Linux: DEB + RPM ──────────────────────────────────────────────────────────
+if(UNIX AND NOT APPLE)
+    set(CPACK_GENERATOR            "DEB;RPM")
+    set(CPACK_PACKAGING_INSTALL_PREFIX "/usr")
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64")
+        set(_deb_arch "arm64")
+        set(_rpm_arch "aarch64")
+    else()
+        set(_deb_arch "amd64")
+        set(_rpm_arch "x86_64")
+    endif()
+    # DEB
+    set(CPACK_DEBIAN_PACKAGE_MAINTAINER
+        "Matt Comeione <matt@ideocentric.com>")
+    set(CPACK_DEBIAN_PACKAGE_SECTION      "sound")
+    set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "${_deb_arch}")
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS
+        "libasound2 (>= 1.0), libx11-6, libxinerama1, libxrandr2, libxcursor1, libfreetype6, libfontconfig1, libgtk-3-0, libgl1")
+    set(CPACK_DEBIAN_PACKAGE_HOMEPAGE
+        "https://github.com/ideocentric/partialfkr")
+    set(CPACK_DEBIAN_FILE_NAME
+        "PartialFKR-0.1.0-Linux-${_deb_arch}.deb")
+    set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA
+        "${CMAKE_SOURCE_DIR}/packaging/linux/postinst"
+        "${CMAKE_SOURCE_DIR}/packaging/linux/postrm")
+    # RPM
+    set(CPACK_RPM_PACKAGE_LICENSE         "AGPL-3.0")
+    set(CPACK_RPM_PACKAGE_GROUP           "Applications/Multimedia")
+    set(CPACK_RPM_PACKAGE_ARCHITECTURE    "${_rpm_arch}")
+    set(CPACK_RPM_PACKAGE_REQUIRES
+        "alsa-lib >= 1.0, gtk3 >= 3.0, mesa-libGL >= 1.0")
+    set(CPACK_RPM_PACKAGE_URL
+        "https://github.com/ideocentric/partialfkr")
+    set(CPACK_RPM_FILE_NAME
+        "PartialFKR-0.1.0-Linux-${_rpm_arch}.rpm")
+    set(CPACK_RPM_POST_INSTALL_SCRIPT_FILE
+        "${CMAKE_SOURCE_DIR}/packaging/linux/postinst")
+    set(CPACK_RPM_POST_UNINSTALL_SCRIPT_FILE
+        "${CMAKE_SOURCE_DIR}/packaging/linux/postrm")
+endif()
+
+include(CPack)
