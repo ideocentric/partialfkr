@@ -343,15 +343,17 @@ if(WIN32)
     set(CPACK_NSIS_HELP_LINK       "https://github.com/ideocentric/partialfkr")
     set(CPACK_NSIS_URL_INFO_ABOUT  "https://github.com/ideocentric/partialfkr")
     set(CPACK_NSIS_MODIFY_PATH     OFF)
-    # Register .pfkr extension. Bracket string passes NSIS variables ($INSTDIR)
-    # verbatim — no CMake escape processing inside [=[ ... ]=].
+    # Register .pfkr extension.
+    # Backslashes are doubled because CPack writes bracket-string content into
+    # CPackConfig.cmake as an unescaped quoted string. When CMake re-reads that
+    # file, each \\ becomes the single \ that NSIS needs in registry paths.
     set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS [=[
 WriteRegStr HKCR ".pfkr" "" "PartialFKR.Project"
 WriteRegStr HKCR "PartialFKR.Project" "" "PartialFKR Project"
-WriteRegStr HKCR "PartialFKR.Project\DefaultIcon" "" "$INSTDIR\bin\PartialFKR.exe,0"
-WriteRegStr HKCR "PartialFKR.Project\shell" "" ""
-WriteRegStr HKCR "PartialFKR.Project\shell\open" "" ""
-WriteRegStr HKCR "PartialFKR.Project\shell\open\command" "" '"$INSTDIR\bin\PartialFKR.exe" "%1"'
+WriteRegStr HKCR "PartialFKR.Project\\DefaultIcon" "" "$INSTDIR\\bin\\PartialFKR.exe,0"
+WriteRegStr HKCR "PartialFKR.Project\\shell" "" ""
+WriteRegStr HKCR "PartialFKR.Project\\shell\\open" "" ""
+WriteRegStr HKCR "PartialFKR.Project\\shell\\open\\command" "" '"$INSTDIR\\bin\\PartialFKR.exe" "%1"'
 System::Call 'Shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
 ]=])
     set(CPACK_NSIS_EXTRA_UNINSTALL_COMMANDS [=[
