@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 #include "MainComponent.h"
 #include "CommandIDs.h"
+#include "AudioExportDialog.h"
+#include "Export/AudioExporter.h"
 
 #include <algorithm>
 #include <unordered_map>
@@ -1306,6 +1308,7 @@ void MainComponent::getAllCommands(juce::Array<juce::CommandID>& commands)
     commands.add(CommandIDs::fileAnalyzeAudio);
     commands.add(CommandIDs::fileSave);
     commands.add(CommandIDs::fileSaveAs);
+    commands.add(CommandIDs::exportAudio);
     commands.add(CommandIDs::exportMidi);
     commands.add(CommandIDs::exportMidiPackage);
     commands.add(CommandIDs::exportCsound);
@@ -1372,6 +1375,10 @@ void MainComponent::getCommandInfo(juce::CommandID commandID,
             result.setActive(hasPartials);
             break;
 
+        case CommandIDs::exportAudio:
+            result.setInfo("Export Audio...", "Render unmuted partials to an audio file", "File", 0);
+            result.setActive(hasPartials);
+            break;
         case CommandIDs::exportMidi:
             result.setInfo("Export as MIDI/MPE...", "Export partials as a single MPE MIDI file", "File", 0);
             result.setActive(hasPartials);
@@ -1615,6 +1622,7 @@ bool MainComponent::perform(const juce::ApplicationCommandTarget::InvocationInfo
         case CommandIDs::fileAnalyzeAudio: openFileAndAnalyze(); return true;
         case CommandIDs::fileSave:         saveProject();        return true;
         case CommandIDs::fileSaveAs:       saveProjectAs(nullptr); return true;
+        case CommandIDs::exportAudio:       exportAudio();       return true;
         case CommandIDs::exportMidi:        exportMidi();        return true;
         case CommandIDs::exportMidiPackage: exportMidiPackage(); return true;
         case CommandIDs::exportCsound:         exportCsound();         return true;
@@ -2188,4 +2196,57 @@ void MainComponent::exportJson()
                     juce::MessageBoxIconType::WarningIcon,
                     "Export Failed", "Could not write JSON file.", "OK");
         });
+}
+
+void MainComponent::exportAudio()
+{
+    if (project.getPartials().empty())
+        return;
+
+    // Warn if every partial is muted — there would be nothing to render.
+    const bool anyUnmuted = std::any_of(project.getPartials().begin(),
+                                         project.getPartials().end(),
+                                         [](const auto& p) {
+                                             return !p->muted.load(std::memory_order_relaxed);
+                                         });
+    if (!anyUnmuted)
+    {
+        juce::AlertWindow::showMessageBoxAsync(
+            juce::MessageBoxIconType::InfoIcon,
+            "Nothing to Export",
+            "All partials are muted.  Unmute at least one partial before exporting audio.",
+            "OK");
+        return;
+    }
+
+    auto* dialogContent = new AudioExportDialog(project.getSampleRate());
+
+    dialogContent->onExport = [this](const AudioExporter::Options& opts) {
+        const juce::String wildcard = AudioExporter::wildcardFor(opts.format);
+        auto chooser  = std::make_shared<juce::FileChooser>("Save Audio File", juce::File{}, wildcard);
+        auto optsCopy = std::make_shared<AudioExporter::Options>(opts);
+
+        chooser->launchAsync(
+            juce::FileBrowserComponent::saveMode |
+            juce::FileBrowserComponent::canSelectFiles |
+            juce::FileBrowserComponent::warnAboutOverwriting,
+            [this, chooser, optsCopy](const juce::FileChooser& fc) {
+                const auto results = fc.getResults();
+                if (results.isEmpty()) return;
+                if (!AudioExporter::exportToFile(project, *optsCopy, results[0]))
+                    juce::AlertWindow::showMessageBoxAsync(
+                        juce::MessageBoxIconType::WarningIcon,
+                        "Export Failed", "Could not write audio file.", "OK");
+            });
+    };
+
+    juce::DialogWindow::LaunchOptions launchOpts;
+    launchOpts.content.setOwned(dialogContent);
+    launchOpts.dialogTitle                = "Export Audio";
+    launchOpts.dialogBackgroundColour     = juce::Colour(0xff111111);
+    launchOpts.useNativeTitleBar          = false;
+    launchOpts.resizable                  = false;
+    launchOpts.escapeKeyTriggersCloseButton = true;
+    launchOpts.componentToCentreAround    = getTopLevelComponent();
+    launchOpts.launchAsync();
 }

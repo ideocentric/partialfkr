@@ -162,12 +162,14 @@ target_sources(PartialFKR PRIVATE
     Source/UI/ReductionPanel.cpp
     Source/UI/TransportBar.cpp
     Source/UI/InspectorPanel.cpp
+    Source/Export/AudioExporter.cpp
     Source/Export/CsoundExporter.cpp
     Source/Export/SuperColliderExporter.cpp
     Source/Export/MidiExporter.cpp
     Source/Export/MidiPackageExporter.cpp
     Source/Export/SdifExporter.cpp
     Source/Export/JsonExporter.cpp
+    Source/UI/AudioExportDialog.cpp
 )
 
 if(APPLE)

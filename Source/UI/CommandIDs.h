@@ -50,6 +50,7 @@ namespace CommandIDs {
     static constexpr int scaleAmplitude = 0x2021;
 
     // Export
+    static constexpr int exportAudio            = 0x2014;
     static constexpr int exportMidi             = 0x2010;
     static constexpr int exportMidiPackage      = 0x2015;
     static constexpr int exportCsound           = 0x2011;

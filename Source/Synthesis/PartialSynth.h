@@ -25,7 +25,7 @@ public:
     void releaseResources();
 
     /** Called between audio blocks to swap in a new project. */
-    void setProject(Project* project);
+    void setProject(const Project* project);
 
     /** Called by the transport to seek; resets all oscillator phases. */
     void setPlayheadTime(double seconds);
@@ -83,7 +83,7 @@ private:
     // audio thread
     void resetStates();
 
-    Project* project    = nullptr;
+    const Project* project = nullptr;
     double   sampleRate = 44100.0;
     double   playheadSeconds = 0.0;
 
