@@ -524,7 +524,9 @@ The Inspector updates immediately as the selection changes.
 
 ## 11. Export
 
-All export formats operate on the **unmuted** partials only. Muted or filtered partials are excluded.
+All export formats operate on the **unmuted** partials only — muted and filtered partials are excluded. If any partial is soloed, only soloed partials are included.
+
+**Export Audio** renders the resynthesis directly to a playable audio file. The other formats export partial data for use in external tools such as Csound, a DAW, or SPEAR.
 
 Access all export options via **File → Export**.
 
@@ -589,15 +591,15 @@ Exports partials as a JSON file, useful for data interchange with custom tools o
 
 Each partial is represented as an object with metadata (id, start time, duration, color) and an array of breakpoints (time, frequency, amplitude, bandwidth, phase).
 
----
-
 ### 11.7 Export Audio
 
-Renders the current resynthesis to an audio file — **you hear exactly what you export**. Muted partials are silent in the output; if any partials are soloed, only soloed partials are rendered.
+Renders the current resynthesis to an audio file — **you hear exactly what you export**. Muted partials are excluded; if any partial is soloed, only soloed partials are rendered.
 
 Invoke via **File → Export → Export Audio…**
 
 A dialog opens with a horizontal tab strip for choosing the output format. The default tab is **AIFF**.
+
+![S-49 — Export Audio dialog, AIFF tab (default)](screenshots/manual/S-49_export_audio_aiff.png)
 
 #### Format tabs
 
@@ -609,6 +611,12 @@ A dialog opens with a horizontal tab strip for choosing the output format. The d
 | Ogg | Ogg Vorbis (lossy) | Quality slider 0.0 (lowest) – 1.0 (highest); default 0.5 |
 | AAC/ALAC | Apple lossy / lossless | **macOS only.** Toggle between AAC (128 – 320 kbps) and ALAC (16 / 24-bit lossless) |
 
+![S-50 — FLAC tab showing bit depth and compression options](screenshots/manual/S-50_export_audio_flac.png)
+
+![S-52 — Ogg tab showing quality slider](screenshots/manual/S-52_export_audio_ogg.png)
+
+![S-51 — AAC/ALAC tab (macOS only) showing codec toggle and bitrate options](screenshots/manual/S-51_export_audio_aac_alac.png)
+
 > **Note:** The AAC/ALAC tab appears only on macOS. On other platforms, FLAC (24-bit, compression 5) is the recommended lossless format.
 
 #### Sample rate
@@ -619,7 +627,7 @@ A **Sample Rate** selector below the option panels offers:
 
 #### Exporting
 
-Click **Export…** to open a file save dialog. The file extension filter matches the selected format automatically. The render runs immediately after you confirm the file path; progress completes silently for typical analysis lengths (under 30 s). On completion the file is ready to use in your DAW, notation software, or csound workflow.
+Click **Export...** to open a file save dialog. The file extension filter matches the selected format automatically. The render runs immediately after you confirm the file path; progress completes silently for typical analysis lengths (under 30 s). On completion the file is ready to use in your DAW, notation software, or Csound workflow.
 
 Click **Cancel** to dismiss the dialog without creating a file.
 
