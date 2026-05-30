@@ -17,9 +17,6 @@ on:
 #             For a distributable release, sign with signtool after obtaining
 #             an Authenticode certificate (see docs/DISTRIBUTION.md).
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   # ── macOS ─────────────────────────────────────────────────────────────────────
   # Produces a universal binary (arm64 + x86_64) and verifies the DMG layout.
@@ -31,10 +28,10 @@ jobs:
     runs-on: macos-14
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Cache build dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: build/_deps
           key: macos-deps-${{ hashFiles('CMakeLists.txt') }}
@@ -53,7 +50,7 @@ jobs:
         run: cmake --build build --target dmg
 
       - name: Upload (unsigned — not for distribution)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: PartialFKR-macOS-CI-unsigned
           path: build/PartialFKR-*.dmg
@@ -76,7 +73,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install dependencies
         run: |
@@ -98,7 +95,7 @@ jobs:
             libgtk-3-dev
 
       - name: Cache build dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: build/_deps
           key: linux-${{ matrix.arch }}-deps-${{ hashFiles('CMakeLists.txt') }}
@@ -115,7 +112,7 @@ jobs:
         run: cpack
 
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: PartialFKR-Linux-${{ matrix.arch }}-packages
           path: |
@@ -144,10 +141,10 @@ jobs:
     runs-on: ${{ matrix.runner }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Cache build dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: build/_deps
           key: windows-${{ matrix.name }}-deps-${{ hashFiles('CMakeLists.txt') }}
@@ -174,7 +171,7 @@ jobs:
         shell: pwsh
 
       - name: Upload (unsigned — not for distribution)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: PartialFKR-Windows-${{ matrix.name }}-CI-unsigned
           path: build/PartialFKR-*.exe
