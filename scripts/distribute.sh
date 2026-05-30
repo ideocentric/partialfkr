@@ -56,17 +56,30 @@ echo "    DMG:      ${DMG_PATH}"
 echo ""
 
 # ── 1. Build Release ──────────────────────────────────────────────────────────
+# Build without in-build signing: JUCE's POST_BUILD steps (Info.plist edits,
+# resource copies) can run after the build-time codesign and break the
+# signature on incremental rebuilds. We sign explicitly below instead.
 echo "[1/7] Building Release (universal binary)..."
 cmake -B "${BUILD_DIR}" -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
-    -DPFKR_CODESIGN=ON \
-    -DPFKR_SIGN_IDENTITY="${CODESIGN_IDENTITY}" \
+    -DPFKR_CODESIGN=OFF \
     "${REPO_ROOT}"
 ninja -C "${BUILD_DIR}" PartialFKR
 
-# ── 2. Verify signature ───────────────────────────────────────────────────────
-echo "[2/7] Verifying app signature..."
+# ── 2. Sign and verify the app ────────────────────────────────────────────────
+# Sign after the build is fully complete so nothing can modify the bundle
+# between signing and the notarization step.
+echo "[2/7] Signing and verifying app..."
+ENTITLEMENTS="${REPO_ROOT}/Resources/MacOS/PartialFKR.entitlements"
+codesign \
+    --force \
+    --deep \
+    --timestamp \
+    --options=runtime \
+    --entitlements "${ENTITLEMENTS}" \
+    --sign "${CODESIGN_IDENTITY}" \
+    "${APP_PATH}"
 codesign --verify --deep --strict --verbose=2 "${APP_PATH}"
 spctl --assess --type exec --verbose "${APP_PATH}"
 
