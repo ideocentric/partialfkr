@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to rebuild and re-upload artifacts for (e.g. v0.1.2)'
+        required: true
+        type: string
 
 # Linux packages, Windows installers (unsigned), and the user manual PDF are uploaded
 # to the draft release automatically.
@@ -22,9 +28,11 @@ jobs:
       tag: ${{ steps.vars.outputs.tag }}
     steps:
       - id: vars
-        run: echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
-      - name: Create draft release
+      - name: Create draft release (no-op if already exists)
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -32,7 +40,8 @@ jobs:
           gh release create "${{ steps.vars.outputs.tag }}" \
             --draft \
             --title "PartialFKR ${{ steps.vars.outputs.tag }}" \
-            --generate-notes
+            --generate-notes \
+          || echo "Release ${{ steps.vars.outputs.tag }} already exists — skipping creation."
 
   # ── User manual ──────────────────────────────────────────────────────────────
   # Uploads docs/MANUAL.pdf to the draft release immediately after it is created.
@@ -42,6 +51,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.create-release.outputs.tag }}
 
       - name: Upload user manual to release
         env:
@@ -69,6 +80,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.create-release.outputs.tag }}
 
       - name: Install dependencies
         run: |
@@ -136,6 +149,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.create-release.outputs.tag }}
 
       - name: Cache build dependencies
         uses: actions/cache@v5
