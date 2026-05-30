@@ -272,6 +272,8 @@ public:
                 file.addSeparator();
 
                 juce::PopupMenu exportSub;
+                exportSub.addCommandItem(&cm, CommandIDs::exportAudio);
+                exportSub.addSeparator();
                 exportSub.addCommandItem(&cm, CommandIDs::exportMidi);
                 exportSub.addCommandItem(&cm, CommandIDs::exportMidiPackage);
                 exportSub.addSeparator();

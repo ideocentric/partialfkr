@@ -20,7 +20,7 @@ void PartialSynth::releaseResources()
     states.clear();
 }
 
-void PartialSynth::setProject(Project* p)
+void PartialSynth::setProject(const Project* p)
 {
     project = p;
     resetStates();

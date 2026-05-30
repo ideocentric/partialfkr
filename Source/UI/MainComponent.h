@@ -149,6 +149,7 @@ private:
     void performFade(bool fadeIn);
 
     // ── Export ────────────────────────────────────────────────────────────────
+    void exportAudio();
     void exportMidi();
     void exportMidiPackage();
     void exportCsound();

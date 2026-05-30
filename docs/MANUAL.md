@@ -591,6 +591,40 @@ Each partial is represented as an object with metadata (id, start time, duration
 
 ---
 
+### 11.7 Export Audio
+
+Renders the current resynthesis to an audio file — **you hear exactly what you export**. Muted partials are silent in the output; if any partials are soloed, only soloed partials are rendered.
+
+Invoke via **File → Export → Export Audio…**
+
+A dialog opens with a horizontal tab strip for choosing the output format. The default tab is **AIFF**.
+
+#### Format tabs
+
+| Tab | Format | Notes |
+|---|---|---|
+| AIFF | Audio Interchange File Format | Bit depths: 16-bit int / 24-bit int / 32-bit float |
+| WAV | Waveform Audio | Bit depths: 16-bit int / 24-bit int / 32-bit float |
+| FLAC | Free Lossless Audio Codec | Bit depths: 16-bit / 24-bit; Compression 1 (fastest) – 8 (smallest) |
+| Ogg | Ogg Vorbis (lossy) | Quality slider 0.0 (lowest) – 1.0 (highest); default 0.5 |
+| AAC/ALAC | Apple lossy / lossless | **macOS only.** Toggle between AAC (128 – 320 kbps) and ALAC (16 / 24-bit lossless) |
+
+> **Note:** The AAC/ALAC tab appears only on macOS. On other platforms, FLAC (24-bit, compression 5) is the recommended lossless format.
+
+#### Sample rate
+
+A **Sample Rate** selector below the option panels offers:
+- **Match source** — uses the sample rate of the analyzed audio file (recommended)
+- 44 100 Hz / 48 000 Hz / 96 000 Hz — override if your target system requires a specific rate
+
+#### Exporting
+
+Click **Export…** to open a file save dialog. The file extension filter matches the selected format automatically. The render runs immediately after you confirm the file path; progress completes silently for typical analysis lengths (under 30 s). On completion the file is ready to use in your DAW, notation software, or csound workflow.
+
+Click **Cancel** to dismiss the dialog without creating a file.
+
+---
+
 ## 12. Keyboard Shortcuts
 
 ### File
