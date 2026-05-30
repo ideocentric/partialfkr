@@ -1,5 +1,5 @@
     cmake_minimum_required(VERSION 3.22)
-project(PartialFKR VERSION 0.1.1)
+project(PartialFKR VERSION 0.1.2)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -69,7 +69,7 @@ endif()
 
 juce_add_gui_app(PartialFKR
     PRODUCT_NAME  "PartialFKR"
-    VERSION       "0.1.1"
+    VERSION       "0.1.2"
     BUNDLE_ID     "com.ideocentric.PartialFKR"
     COMPANY_NAME  "ideocentric"
     ICON_BIG      "${_app_icon}"
@@ -305,10 +305,10 @@ set(CPACK_INSTALL_CMAKE_PROJECTS "${CMAKE_CURRENT_BINARY_DIR};${PROJECT_NAME};Ap
 
 set(CPACK_PACKAGE_NAME             "PartialFKR")
 set(CPACK_PACKAGE_VENDOR           "ideocentric")
-set(CPACK_PACKAGE_VERSION          "0.1.1")
+set(CPACK_PACKAGE_VERSION          "0.1.2")
 set(CPACK_PACKAGE_VERSION_MAJOR    "0")
 set(CPACK_PACKAGE_VERSION_MINOR    "1")
-set(CPACK_PACKAGE_VERSION_PATCH    "1")
+set(CPACK_PACKAGE_VERSION_PATCH    "2")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
     "Loris-based spectral audio editor and resynthesizer")
 set(CPACK_PACKAGE_HOMEPAGE_URL     "https://github.com/ideocentric/partialfkr")
