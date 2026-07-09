@@ -756,7 +756,8 @@ void MainComponent::onAnalysisComplete(std::vector<std::unique_ptr<Partial>> par
     transportBar.setPlayheadPosition(0.0);
     partialView.setPlayheadTime(0.0);
     setDirtyFlag(true);
-    grabKeyboardFocus();
+    // Focus the canvas (not MainComponent) so nav keys work without a click first.
+    partialView.grabKeyboardFocus();
 }
 
 // ── Save / Load ───────────────────────────────────────────────────────────────
@@ -879,7 +880,8 @@ void MainComponent::loadProject(const juce::File& pfkrFile)
     setWindowTitle("PartialFKR - " + pfkrFile.getFileNameWithoutExtension());
     MacProxyIcon::set(getTopLevelComponent(), pfkrFile);
     setDirtyFlag(false);
-    grabKeyboardFocus();
+    // Focus the canvas (not MainComponent) so nav keys work without a click first.
+    partialView.grabKeyboardFocus();
     if (onMenuStateChanged) onMenuStateChanged();
 }
 
