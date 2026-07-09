@@ -294,7 +294,22 @@ private:
             // ── 15: Loop enabled ─────────────────────────────────────────────
             case 15:
                 saveChild("transportBar", "S-19_transport_loop_on");
-                invoke(CommandIDs::transportLoop);
+                invoke(CommandIDs::transportLoop);   // loop back off
+                invoke(CommandIDs::transportPlayPause);   // start playback
+                startTimer(800);   // let the playhead advance mid-file
+                break;
+
+            // ── 16: Playing — pause glyph, running time ──────────────────────
+            case 16:
+                saveChild("transportBar", "S-17_playing");
+                invoke(CommandIDs::transportPlayPause);   // pause (retain position)
+                startTimer(250);
+                break;
+
+            // ── 17: Paused — play glyph, position retained ───────────────────
+            case 17:
+                saveChild("transportBar", "S-18_paused");
+                invoke(CommandIDs::transportStop);   // reset to in-point
                 writeManifest();
                 juce::MessageManager::callAsync([] {
                     juce::JUCEApplication::getInstance()->systemRequestedQuit();

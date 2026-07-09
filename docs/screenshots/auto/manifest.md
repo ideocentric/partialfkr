@@ -13,6 +13,8 @@ Source: `/Users/matt/Documents/GitHub/personal/partialfkr/samples/demo.pfkr`
 | S-12_canvas_zoomed_in.png | |
 | S-13_canvas_zoom_fit.png | |
 | S-16_transport_stopped.png | |
+| S-17_playing.png | |
+| S-18_paused.png | |
 | S-19_transport_loop_on.png | |
 | S-20_level_meter.png | |
 | S-21_gain_fader.png | |

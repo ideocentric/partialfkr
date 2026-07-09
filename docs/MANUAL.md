@@ -252,9 +252,9 @@ Playback can also be started by pressing **Space** anywhere in the canvas.
 | Transport → Go to Start | ⌘← (or Home) | Move the playhead to the beginning of the file |
 | Transport → Go to End | ⌘→ (or End) | Move the playhead to the end of the file |
 
-![S-17 — Transport bar in playing state](screenshots/manual/S-17_playing.png)
+![S-17 — Transport bar in playing state](screenshots/auto/S-17_playing.png)
 
-![S-18 — Transport bar in paused state](screenshots/manual/S-18_paused.png)
+![S-18 — Transport bar in paused state](screenshots/auto/S-18_paused.png)
 
 ### 5.2 Loop mode
 
