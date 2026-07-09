@@ -1,0 +1,4 @@
+# Generated manual artifacts. MANUAL.html embeds all screenshots as base64 data
+# URIs, so treat both as binary — git should not attempt (huge, useless) text diffs.
+docs/MANUAL.html -diff
+docs/MANUAL.pdf  binary

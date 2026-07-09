@@ -279,6 +279,13 @@ elseif(WIN32)
     install(TARGETS PartialFKR
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         COMPONENT Application)
+    # Ship the user manual as a single self-contained HTML file (CSS + screenshots
+    # inlined as data URIs — regenerate with:
+    #   pandoc docs/MANUAL.md -o docs/MANUAL.html -s --embed-resources --css docs/manual.css
+    # so it renders offline next to the executable with no external assets.
+    install(FILES "${CMAKE_SOURCE_DIR}/docs/MANUAL.html"
+        DESTINATION .
+        COMPONENT Application)
 else()
     install(TARGETS PartialFKR
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
