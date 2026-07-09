@@ -32,6 +32,8 @@ namespace CommandIDs {
     static constexpr int transportSetInPoint      = 0x2043;
     static constexpr int transportSetOutPoint     = 0x2044;
     static constexpr int transportSetInOutFromSel = 0x2045;
+    static constexpr int transportGoToStart       = 0x2046;
+    static constexpr int transportGoToEnd         = 0x2047;
 
     // Join operations
     static constexpr int editBridgePartials   = 0x2080;

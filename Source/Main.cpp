@@ -326,6 +326,9 @@ public:
                 transport.addCommandItem(&cm, CommandIDs::transportPlayPause);
                 transport.addCommandItem(&cm, CommandIDs::transportStop);
                 transport.addSeparator();
+                transport.addCommandItem(&cm, CommandIDs::transportGoToStart);
+                transport.addCommandItem(&cm, CommandIDs::transportGoToEnd);
+                transport.addSeparator();
                 transport.addCommandItem(&cm, CommandIDs::transportLoop);
                 transport.addSeparator();
                 transport.addCommandItem(&cm, CommandIDs::transportSetInPoint);

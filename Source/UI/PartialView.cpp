@@ -340,12 +340,49 @@ void PartialView::zoomTime(double factor, float relX)
     viewTimeEnd   = viewTimeStart + newRange;
 }
 
-void PartialView::zoomFrequency(double factor)
+void PartialView::zoomFrequency(double factor, float relY)
 {
     const float maxH = maxFrequency * 1.1f;
-    viewFreqLow  = 0.0f;
-    viewFreqHigh = juce::jlimit(200.0f, maxH,
-                                static_cast<float>(viewFreqHigh * factor));
+
+    if (relY < 0.0f)
+    {
+        // Legacy path (+/- buttons): keep the low edge pinned to 0 Hz.
+        viewFreqLow  = 0.0f;
+        viewFreqHigh = juce::jlimit(200.0f, maxH,
+                                    static_cast<float>(viewFreqHigh * factor));
+        return;
+    }
+
+    // Cursor-anchored path: hold the frequency under the cursor fixed.
+    const float range      = viewFreqHigh - viewFreqLow;
+    const float newRange   = juce::jlimit(100.0f, maxH, static_cast<float>(range * factor));
+    const float cursorFreq = viewFreqLow + (1.0f - relY) * range;
+
+    float newLow = cursorFreq - (1.0f - relY) * newRange;
+    newLow = juce::jlimit(0.0f, std::max(0.0f, maxH - newRange), newLow);
+
+    viewFreqLow  = newLow;
+    viewFreqHigh = newLow + newRange;
+}
+
+void PartialView::goToStart()
+{
+    const double range = viewTimeEnd - viewTimeStart;
+    viewTimeStart = 0.0;
+    viewTimeEnd   = range;
+    if (onSeek) onSeek(0.0);
+    updateScrollBars();
+    repaint();
+}
+
+void PartialView::goToEnd()
+{
+    const double range = viewTimeEnd - viewTimeStart;
+    viewTimeEnd   = totalDuration;
+    viewTimeStart = std::max(0.0, totalDuration - range);
+    if (onSeek) onSeek(totalDuration);
+    updateScrollBars();
+    repaint();
 }
 
 void PartialView::panTime(double deltaSeconds)
@@ -631,42 +668,54 @@ void PartialView::mouseWheelMove(const juce::MouseEvent& e,
     const float absX = std::abs(wheel.deltaX);
     const float absY = std::abs(wheel.deltaY);
 
-    if (e.mods.isShiftDown())
+    const float canvasW = static_cast<float>(getWidth()  - kChrome);
+    const float canvasH = static_cast<float>(getHeight() - kChrome - kRulerH);
+    const float relX = canvasW > 0.0f ? juce::jlimit(0.0f, 1.0f, e.position.x / canvasW) : 0.5f;
+    const float relY = canvasH > 0.0f ? juce::jlimit(0.0f, 1.0f, e.position.y / canvasH) : 0.5f;
+
+    // Dominant-axis delta — a plain mouse wheel is mostly Y, but some mice/trackpads
+    // leak a little X, so pick the larger magnitude rather than assuming an axis.
+    const float delta = (absX > absY) ? wheel.deltaX : wheel.deltaY;
+    if (delta == 0.0f) return;
+    const double factor = (delta > 0) ? 0.85 : 1.0 / 0.85;
+
+    if (e.mods.isCommandDown() || e.mods.isAltDown())
     {
-        // Vertical (frequency) zoom — macOS converts Shift+scroll to deltaX
-        const float delta = (absX > absY) ? wheel.deltaX : wheel.deltaY;
-        if (delta == 0.0f) return;
-        zoomFrequency((delta > 0) ? 0.85 : 1.0 / 0.85);
-        updateScrollBars();
+        // Cmd/Ctrl or Option + scroll → horizontal (time) zoom, anchored to cursor.
+        zoomTime(factor, relX);
     }
-    else if (e.mods.isAltDown())
+    else if (e.mods.isShiftDown())
     {
-        // Horizontal (time) zoom anchored to cursor
-        const float delta = (absX > absY) ? wheel.deltaX : wheel.deltaY;
-        if (delta == 0.0f) return;
-        const float relX = e.position.x / static_cast<float>(getWidth() - kChrome);
-        zoomTime((delta > 0) ? 0.85 : 1.0 / 0.85, relX);
-        updateScrollBars();
+        // Shift + scroll → pan the time axis.
+        const double timeRange = viewTimeEnd - viewTimeStart;
+        panTime(-static_cast<double>(delta) * timeRange * 0.3);
     }
     else
     {
-        // Unmodified: pan
-        if (absX >= absY)
-        {
-            // Horizontal swipe → pan time axis
-            const double timeRange = viewTimeEnd - viewTimeStart;
-            panTime(-static_cast<double>(wheel.deltaX) * timeRange * 0.3);
-            updateScrollBars();
-        }
-        else
-        {
-            // Vertical scroll → pan frequency axis
-            const float freqRange = viewFreqHigh - viewFreqLow;
-            panFrequency(wheel.deltaY * freqRange * 0.3f);
-            updateScrollBars();
-        }
+        // Plain scroll → vertical (frequency) zoom, anchored to cursor.
+        zoomFrequency(factor, relY);
     }
 
+    updateScrollBars();
+    repaint();
+}
+
+void PartialView::mouseMagnify(const juce::MouseEvent& e, float scaleFactor)
+{
+    // Trackpad pinch → uniform zoom on both axes, anchored at the cursor.
+    if (scaleFactor <= 0.0f || scaleFactor == 1.0f) return;
+
+    const float canvasW = static_cast<float>(getWidth()  - kChrome);
+    const float canvasH = static_cast<float>(getHeight() - kChrome - kRulerH);
+    const float relX = canvasW > 0.0f ? juce::jlimit(0.0f, 1.0f, e.position.x / canvasW) : 0.5f;
+    const float relY = canvasH > 0.0f ? juce::jlimit(0.0f, 1.0f, e.position.y / canvasH) : 0.5f;
+
+    // scaleFactor > 1 = pinch-out = zoom in = shrink the visible range.
+    const double factor = 1.0 / static_cast<double>(scaleFactor);
+    zoomTime(factor, relX);
+    zoomFrequency(factor, relY);
+
+    updateScrollBars();
     repaint();
 }
 
@@ -692,17 +741,19 @@ bool PartialView::keyPressed(const juce::KeyPress& key)
         panFrequency(freqPage);        // scroll frequency view up one page
     else if (key == juce::KeyPress::pageDownKey)
         panFrequency(-freqPage);       // scroll frequency view down one page
-    else if (key == juce::KeyPress::homeKey)
+    else if (key == juce::KeyPress::homeKey
+             || key == juce::KeyPress(juce::KeyPress::leftKey, juce::ModifierKeys::commandModifier, 0))
     {
-        const double range = viewTimeEnd - viewTimeStart;
-        viewTimeStart = 0.0;
-        viewTimeEnd   = range;
+        // ⌘← aliases Home for Mac keyboards without dedicated Home/End keys.
+        goToStart();
+        return true;
     }
-    else if (key == juce::KeyPress::endKey)
+    else if (key == juce::KeyPress::endKey
+             || key == juce::KeyPress(juce::KeyPress::rightKey, juce::ModifierKeys::commandModifier, 0))
     {
-        const double range = viewTimeEnd - viewTimeStart;
-        viewTimeEnd   = totalDuration;
-        viewTimeStart = std::max(0.0, totalDuration - range);
+        // ⌘→ aliases End for Mac keyboards without dedicated Home/End keys.
+        goToEnd();
+        return true;
     }
     else if (key == juce::KeyPress('0', juce::ModifierKeys::commandModifier, 0))
     {

@@ -1341,6 +1341,8 @@ void MainComponent::getAllCommands(juce::Array<juce::CommandID>& commands)
     commands.add(CommandIDs::transportSetInPoint);
     commands.add(CommandIDs::transportSetOutPoint);
     commands.add(CommandIDs::transportSetInOutFromSel);
+    commands.add(CommandIDs::transportGoToStart);
+    commands.add(CommandIDs::transportGoToEnd);
 }
 
 void MainComponent::getCommandInfo(juce::CommandID commandID,
@@ -1610,6 +1612,18 @@ void MainComponent::getCommandInfo(juce::CommandID commandID,
             result.setActive(hasSelection);
             break;
 
+        case CommandIDs::transportGoToStart:
+            result.setInfo("Go to Start", "Move the playhead to the beginning of the file", "Transport", 0);
+            result.addDefaultKeypress(juce::KeyPress::leftKey, juce::ModifierKeys::commandModifier);
+            result.setActive(hasPartials);
+            break;
+
+        case CommandIDs::transportGoToEnd:
+            result.setInfo("Go to End", "Move the playhead to the end of the file", "Transport", 0);
+            result.addDefaultKeypress(juce::KeyPress::rightKey, juce::ModifierKeys::commandModifier);
+            result.setActive(hasPartials);
+            break;
+
         default: break;
     }
 }
@@ -1678,6 +1692,8 @@ bool MainComponent::perform(const juce::ApplicationCommandTarget::InvocationInfo
         case CommandIDs::transportPlayPause: handlePlayPauseToggle();                                    return true;
         case CommandIDs::transportStop:      handleStop();                                               return true;
         case CommandIDs::transportLoop:      transportBar.setLoopEnabled(!transportBar.isLoopEnabled()); return true;
+        case CommandIDs::transportGoToStart: partialView.goToStart();                                    return true;
+        case CommandIDs::transportGoToEnd:   partialView.goToEnd();                                      return true;
 
         case CommandIDs::transportSetInPoint:
             updateMarkers(transportBar.getPlayheadPosition(), outPoint);

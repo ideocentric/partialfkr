@@ -19,10 +19,12 @@
  *   V                      → Selection tool (whole-partial select)
  *   A                      → Direct Select tool (breakpoint-level select, snaps to nodes)
  *   Click empty-state link → triggers Analyze Audio (onAnalyzeRequested)
- *   Option + scroll        → horizontal (time) zoom, anchored to cursor
- *   Shift  + scroll        → vertical (freq) zoom, pinned to 0 Hz
- *   Unmodified vert scroll → pan frequency axis
- *   Unmodified horiz scroll / trackpad swipe → pan time axis
+ *
+ *   Plain scroll                 → vertical (frequency) zoom, anchored to cursor
+ *   Cmd/Ctrl or Option + scroll  → horizontal (time) zoom, anchored to cursor
+ *   Shift + scroll               → pan the time axis
+ *   Pinch (mouseMagnify)         → uniform zoom on both axes, anchored to cursor
+ *   Home / End  (or Cmd+Left/Right) → jump playback to file start / end (view follows)
  *   Arrow L/R              → pan time by 10% of view
  *   Arrow U/D              → pan frequency by 10% of view
  *   Page Up/Down           → pan time by one full view width
@@ -49,6 +51,7 @@ public:
     void mouseMove(const juce::MouseEvent& e) override;
     void mouseExit(const juce::MouseEvent& e) override;
     void mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) override;
+    void mouseMagnify(const juce::MouseEvent& e, float scaleFactor) override;
     juce::MouseCursor getMouseCursor() override;
     bool keyPressed(const juce::KeyPress& key) override;
 
@@ -127,6 +130,11 @@ public:
     void zoomIn()  { zoomTime(0.65,       0.5f); updateScrollBars(); repaint(); }
     void zoomOut() { zoomTime(1.0/0.65,   0.5f); updateScrollBars(); repaint(); }
 
+    /** Jump playback to the file start; the view scrolls to follow. Fires onSeek. */
+    void goToStart();
+    /** Jump playback to the file end; the view scrolls to follow. Fires onSeek. */
+    void goToEnd();
+
     [[nodiscard]] double getViewTimeStart() const noexcept { return viewTimeStart; }
     [[nodiscard]] double getViewTimeEnd()   const noexcept { return viewTimeEnd; }
     [[nodiscard]] float  getViewFreqLow()   const noexcept { return viewFreqLow; }
@@ -137,7 +145,10 @@ private:
 
     // ── Zoom / pan helpers ────────────────────────────────────────────────────
     void zoomTime(double factor, float relX = 0.5f);
-    void zoomFrequency(double factor);
+    /** Scales the visible frequency range by @p factor. When @p relY is in [0,1] the
+     *  frequency under the cursor (relY measured from the top of the canvas) is held
+     *  fixed; when @p relY < 0 the low edge stays pinned to 0 Hz (used by the +/- buttons). */
+    void zoomFrequency(double factor, float relY = -1.0f);
     void panTime(double deltaSeconds);
     void panFrequency(float deltaHz);
 

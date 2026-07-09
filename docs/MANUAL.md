@@ -195,16 +195,20 @@ The canvas plots partials as colored lines:
 
 ### 4.2 Navigating: zoom and pan
 
-**Zoom (time axis)**
+**Zoom**
+
+All scroll-based zoom is anchored at the cursor position.
 
 | Action | Effect |
 |---|---|
-| ⌘= | Zoom in (expand time axis) |
-| ⌘− | Zoom out (compress time axis) |
+| Scroll / wheel | Zoom frequency axis (vertical) |
+| ⌘+scroll or ⌥+scroll | Zoom time axis (horizontal) |
+| Pinch (trackpad) | Zoom both axes together |
+| ⌘= | Zoom in (time axis) |
+| ⌘− | Zoom out (time axis) |
 | ⌘0 | Zoom to fit — shows all partials |
-| ⌥+scroll | Zoom in/out at cursor position |
 
-The zoom buttons in the bottom-right chrome of the canvas (+ and −) perform the same zoom operations (items 4 and 5).
+The zoom buttons in the canvas chrome perform the same operations: the pair in the bottom-right zoom the time axis, the pair on the right zoom the frequency axis.
 
 ![S-12 — Canvas zoomed in, showing individual partial detail](screenshots/auto/S-12_canvas_zoomed_in.png)
 
@@ -214,9 +218,10 @@ The zoom buttons in the bottom-right chrome of the canvas (+ and −) perform th
 
 | Action | Effect |
 |---|---|
-| Scroll wheel / trackpad | Pan frequency (vertical) |
-| ⇧+scroll | Zoom frequency axis |
+| ⇧+scroll | Pan time (horizontal) |
 | Arrow keys | Pan time (← →) or frequency (↑ ↓) |
+| Page Up / Down | Pan frequency up / down by one page |
+| Home / End (or ⌘← / ⌘→) | Jump playback to file start / end (view follows) |
 | Drag empty canvas area | Pan time and frequency |
 
 ### 4.3 The playhead
@@ -238,6 +243,13 @@ The yellow vertical line indicates the current playback position. Click anywhere
 | ⏹ Stop (item 1) | — | Stop playback and return to the in-point |
 
 Playback can also be started by pressing **Space** anywhere in the canvas.
+
+**Go to Start / End** — jump the playhead to either end of the file. The view scrolls to follow.
+
+| Menu | Key | Action |
+|---|---|---|
+| Transport → Go to Start | ⌘← (or Home) | Move the playhead to the beginning of the file |
+| Transport → Go to End | ⌘→ (or End) | Move the playhead to the end of the file |
 
 ![S-17 — Transport bar in playing state](screenshots/manual/S-17_playing.png)
 
@@ -701,8 +713,12 @@ Click **Cancel** to dismiss the dialog without creating a file.
 |---|---|
 | Pan left / right | ← / → |
 | Pan up / down (frequency) | ↑ / ↓ |
-| Zoom time in/out | ⌥+scroll |
-| Zoom frequency in/out | ⇧+scroll |
+| Pan frequency by page | Page Up / Page Down |
+| Jump playback to start / end | Home / End (or ⌘← / ⌘→) |
+| Zoom frequency in / out | scroll |
+| Zoom time in / out | ⌘+scroll or ⌥+scroll |
+| Zoom both axes | pinch (trackpad) |
+| Pan time | ⇧+scroll |
 
 ---
 
