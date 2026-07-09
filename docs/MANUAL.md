@@ -42,9 +42,9 @@ The aesthetic goal is *re-orchestration*: hearing an implied source signal — i
 
 ### 1.3 Supported platforms
 
-- **macOS** (Apple Silicon and Intel) — current release
-- **Windows** — coming soon
-- **Linux** — coming soon
+- **macOS** (Apple Silicon and Intel)
+- **Windows** (x64 and ARM64)
+- **Linux** (x86_64 and ARM64)
 
 ---
 
@@ -53,7 +53,8 @@ The aesthetic goal is *re-orchestration*: hearing an implied source signal — i
 ### 2.1 Installation
 
 **macOS**: Open the `.dmg`, drag PartialFKR to your Applications folder.  
-**Windows** and **Linux**: Releases coming soon.
+**Windows**: Run the NSIS installer (`.exe`) and follow the prompts.  
+**Linux**: Install the `.deb` (Debian/Ubuntu) or `.rpm` (Fedora/RHEL) package for your architecture.
 
 ### 2.2 First launch
 
