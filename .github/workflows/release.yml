@@ -13,8 +13,12 @@ on:
 
 # Linux packages, Windows installers (unsigned), and the user manual PDF are uploaded
 # to the draft release automatically.
-# The macOS notarized DMG must be built and uploaded locally — see docs/DISTRIBUTION.md.
-# Publish the draft release on GitHub after uploading the macOS DMG.
+#
+# The macOS notarized DMG is NOT built in CI — it needs the Developer ID signing
+# certificate and Apple notarization credentials, which live only on the maintainer's
+# Mac (scripts/distribute.sh, credentials in a gitignored .env). The `macos-manual-step`
+# job below prints the exact command to run locally so the release flow never leaves it
+# implicit. Run that command, then publish the draft.
 
 permissions:
   contents: write
@@ -160,7 +164,10 @@ jobs:
           restore-keys: windows-${{ matrix.name }}-release-deps-
 
       - name: Configure
-        run: cmake -B build -G "Visual Studio 17 2022" -A ${{ matrix.arch }}
+        # Let CMake pick the newest Visual Studio the runner actually ships, rather than
+        # hardcoding a version — the floating windows-latest image drops older VS toolsets
+        # over time. -A still selects the target architecture (x64 / ARM64).
+        run: cmake -B build -A ${{ matrix.arch }}
 
       - name: Build
         run: cmake --build build --config Release --parallel
@@ -180,3 +187,38 @@ jobs:
             (Get-ChildItem build\PartialFKR-*.exe).FullName `
             --clobber
         shell: pwsh
+
+  # ── macOS — manual step ───────────────────────────────────────────────────────
+  # The macOS DMG cannot be built here: it requires the Developer ID certificate and
+  # Apple notarization credentials, which never leave the maintainer's Mac. This job
+  # does no building — it surfaces a prominent prompt (run summary + a notice
+  # annotation) with the exact command to run locally, so the release is never
+  # "done" without a conscious macOS step.
+  macos-manual-step:
+    name: macOS DMG (build locally)
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prompt maintainer to build and upload the macOS DMG
+        env:
+          TAG: ${{ needs.create-release.outputs.tag }}
+        run: |
+          MSG="macOS DMG is not built in CI. On your Mac, from the repo root, run: ./scripts/distribute.sh — it builds the universal binary, signs, notarizes, staples, creates the DMG, and uploads it to draft release ${TAG}. Then publish: gh release view ${TAG} --web"
+          echo "::notice title=macOS DMG — manual step required::${MSG}"
+          {
+            echo "## 🍎 macOS DMG — manual step required"
+            echo ""
+            echo "CI built the Linux, Windows, and manual assets. The **macOS notarized DMG** must be built on your Mac (it needs the Developer ID + notarization credentials that live only there)."
+            echo ""
+            echo "From the repo root, on your Mac:"
+            echo ""
+            echo '```bash'
+            echo "./scripts/distribute.sh"
+            echo '```'
+            echo ""
+            echo "That signs, notarizes, staples, packages, and uploads the DMG to draft release \`${TAG}\`. Then review and publish:"
+            echo ""
+            echo '```bash'
+            echo "gh release view ${TAG} --web"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
