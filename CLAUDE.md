@@ -152,4 +152,10 @@ Stop and ask in chat before:
 
 ## Current Status
 
-Project is in initial scaffolding phase. Next milestone: load a WAV, analyze with Loris, display partials in `PartialView`, resynthesize through `PartialSynth`. See `docs/DESIGN.md` § "Open Questions Deferred to First Working Build" for outstanding decisions.
+**v0.1.3** (released). The core workflow loop is working end-to-end: load WAV → Loris analysis → `PartialView` canvas → `PartialSynth` playback → reduce → export. Save/load via `.pfkr` (JSON), a standard menu bar, transport with zoom/scroll, inspector, and tools/reduction panels are all in place.
+
+Exporters implemented: Csound, MIDI (MPE), MIDI package (per-partial), Audio (AIFF/WAV/FLAC/Ogg/AAC/ALAC), SuperCollider, JSON, SDIF.
+
+Renderer is `Juce2DRenderer` (JUCE 2D `Graphics`); `OpenGLContext` is attached to `PartialView` with GL callbacks stubbed to preserve the migration path. Cross-platform CI is green on all 5 targets (macOS universal DMG, Linux x86_64/arm64 DEB+RPM, Windows x64/arm64 NSIS); signing/notarization/DMG via `scripts/distribute.sh`.
+
+Backlog lives in `docs/FEATURES.md`. Remaining open questions (default `Analyzer` params, undo granularity) tracked in `docs/DESIGN.md` § "Open Questions Deferred to First Working Build".
