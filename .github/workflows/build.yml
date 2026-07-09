@@ -151,7 +151,10 @@ jobs:
           restore-keys: windows-${{ matrix.name }}-deps-
 
       - name: Configure
-        run: cmake -B build -G "Visual Studio 17 2022" -A ${{ matrix.arch }}
+        # Let CMake pick the newest Visual Studio the runner actually ships, rather than
+        # hardcoding a version — the floating windows-latest image drops older VS toolsets
+        # over time. -A still selects the target architecture (x64 / ARM64).
+        run: cmake -B build -A ${{ matrix.arch }}
 
       - name: Build
         run: cmake --build build --config Release --parallel
