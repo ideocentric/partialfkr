@@ -80,18 +80,19 @@ not the goal; characteristic preservation through aggressive reduction
 is.</p>
 <h3 id="supported-platforms">1.3 Supported platforms</h3>
 <ul>
-<li><strong>macOS</strong> (Apple Silicon and Intel) — current
-release</li>
-<li><strong>Windows</strong> — coming soon</li>
-<li><strong>Linux</strong> — coming soon</li>
+<li><strong>macOS</strong> (Apple Silicon and Intel)</li>
+<li><strong>Windows</strong> (x64 and ARM64)</li>
+<li><strong>Linux</strong> (x86_64 and ARM64)</li>
 </ul>
 <hr />
 <h2 id="getting-started">2. Getting Started</h2>
 <h3 id="installation">2.1 Installation</h3>
 <p><strong>macOS</strong>: Open the <code>.dmg</code>, drag PartialFKR
 to your Applications folder.<br />
-<strong>Windows</strong> and <strong>Linux</strong>: Releases coming
-soon.</p>
+<strong>Windows</strong>: Run the NSIS installer (<code>.exe</code>) and
+follow the prompts.<br />
+<strong>Linux</strong>: Install the <code>.deb</code> (Debian/Ubuntu) or
+<code>.rpm</code> (Fedora/RHEL) package for your architecture.</p>
 <h3 id="first-launch">2.2 First launch</h3>
 <p>When PartialFKR first launches, it opens an empty project window
 ready to receive an audio file for analysis. The canvas displays an
@@ -476,7 +477,8 @@ alt="S-11 — Canvas with default zoom showing all partials" />
 all partials</figcaption>
 </figure>
 <h3 id="navigating-zoom-and-pan">4.2 Navigating: zoom and pan</h3>
-<p><strong>Zoom (time axis)</strong></p>
+<p><strong>Zoom</strong></p>
+<p>All scroll-based zoom is anchored at the cursor position.</p>
 <table>
 <thead>
 <tr>
@@ -486,25 +488,34 @@ all partials</figcaption>
 </thead>
 <tbody>
 <tr>
+<td>Scroll / wheel</td>
+<td>Zoom frequency axis (vertical)</td>
+</tr>
+<tr>
+<td>⌘+scroll or ⌥+scroll</td>
+<td>Zoom time axis (horizontal)</td>
+</tr>
+<tr>
+<td>Pinch (trackpad)</td>
+<td>Zoom both axes together</td>
+</tr>
+<tr>
 <td>⌘=</td>
-<td>Zoom in (expand time axis)</td>
+<td>Zoom in (time axis)</td>
 </tr>
 <tr>
 <td>⌘−</td>
-<td>Zoom out (compress time axis)</td>
+<td>Zoom out (time axis)</td>
 </tr>
 <tr>
 <td>⌘0</td>
 <td>Zoom to fit — shows all partials</td>
 </tr>
-<tr>
-<td>⌥+scroll</td>
-<td>Zoom in/out at cursor position</td>
-</tr>
 </tbody>
 </table>
-<p>The zoom buttons in the bottom-right chrome of the canvas (+ and −)
-perform the same zoom operations (items 4 and 5).</p>
+<p>The zoom buttons in the canvas chrome perform the same operations:
+the pair in the bottom-right zoom the time axis, the pair on the right
+zoom the frequency axis.</p>
 <figure>
 <img src="screenshots/auto/S-12_canvas_zoomed_in.png"
 alt="S-12 — Canvas zoomed in, showing individual partial detail" />
@@ -519,6 +530,10 @@ partials</figcaption>
 </figure>
 <p><strong>Pan</strong></p>
 <table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
 <thead>
 <tr>
 <th>Action</th>
@@ -527,16 +542,20 @@ partials</figcaption>
 </thead>
 <tbody>
 <tr>
-<td>Scroll wheel / trackpad</td>
-<td>Pan frequency (vertical)</td>
-</tr>
-<tr>
 <td>⇧+scroll</td>
-<td>Zoom frequency axis</td>
+<td>Pan time (horizontal)</td>
 </tr>
 <tr>
 <td>Arrow keys</td>
 <td>Pan time (← →) or frequency (↑ ↓)</td>
+</tr>
+<tr>
+<td>Page Up / Down</td>
+<td>Pan frequency up / down by one page</td>
+</tr>
+<tr>
+<td>Home / End (or ⌘← / ⌘→)</td>
+<td>Jump playback to file start / end (view follows)</td>
 </tr>
 <tr>
 <td>Drag empty canvas area</td>
@@ -591,14 +610,42 @@ state</figcaption>
 </table>
 <p>Playback can also be started by pressing <strong>Space</strong>
 anywhere in the canvas.</p>
+<p><strong>Go to Start / End</strong> — jump the playhead to either end
+of the file. The view scrolls to follow.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Menu</th>
+<th>Key</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Transport → Go to Start</td>
+<td>⌘← (or Home)</td>
+<td>Move the playhead to the beginning of the file</td>
+</tr>
+<tr>
+<td>Transport → Go to End</td>
+<td>⌘→ (or End)</td>
+<td>Move the playhead to the end of the file</td>
+</tr>
+</tbody>
+</table>
 <figure>
-<img src="screenshots/manual/S-17_playing.png"
+<img src="screenshots/auto/S-17_playing.png"
 alt="S-17 — Transport bar in playing state" />
 <figcaption aria-hidden="true">S-17 — Transport bar in playing
 state</figcaption>
 </figure>
 <figure>
-<img src="screenshots/manual/S-18_paused.png"
+<img src="screenshots/auto/S-18_paused.png"
 alt="S-18 — Transport bar in paused state" />
 <figcaption aria-hidden="true">S-18 — Transport bar in paused
 state</figcaption>
@@ -1116,7 +1163,11 @@ selected</figcaption>
 <hr />
 <h2 id="export">11. Export</h2>
 <p>All export formats operate on the <strong>unmuted</strong> partials
-only. Muted or filtered partials are excluded.</p>
+only — muted and filtered partials are excluded. If any partial is
+soloed, only soloed partials are included.</p>
+<p><strong>Export Audio</strong> renders the resynthesis directly to a
+playable audio file. The other formats export partial data for use in
+external tools such as Csound, a DAW, or SPEAR.</p>
 <p>Access all export options via <strong>File → Export</strong>.</p>
 <figure>
 <img src="screenshots/manual/S-06_sub_menu.png"
@@ -1212,6 +1263,100 @@ custom tools or scripts.</p>
 <p>Each partial is represented as an object with metadata (id, start
 time, duration, color) and an array of breakpoints (time, frequency,
 amplitude, bandwidth, phase).</p>
+<h3 id="export-audio">11.7 Export Audio</h3>
+<p>Renders the current resynthesis to an audio file — <strong>you hear
+exactly what you export</strong>. Muted partials are excluded; if any
+partial is soloed, only soloed partials are rendered.</p>
+<p>Invoke via <strong>File → Export → Export Audio…</strong></p>
+<p>A dialog opens with a horizontal tab strip for choosing the output
+format. The default tab is <strong>AIFF</strong>.</p>
+<figure>
+<img src="screenshots/manual/S-49_export_audio_aiff.png"
+alt="S-49 — Export Audio dialog, AIFF tab (default)" />
+<figcaption aria-hidden="true">S-49 — Export Audio dialog, AIFF tab
+(default)</figcaption>
+</figure>
+<h4 id="format-tabs">Format tabs</h4>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Tab</th>
+<th>Format</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AIFF</td>
+<td>Audio Interchange File Format</td>
+<td>Bit depths: 16-bit int / 24-bit int / 32-bit float</td>
+</tr>
+<tr>
+<td>WAV</td>
+<td>Waveform Audio</td>
+<td>Bit depths: 16-bit int / 24-bit int / 32-bit float</td>
+</tr>
+<tr>
+<td>FLAC</td>
+<td>Free Lossless Audio Codec</td>
+<td>Bit depths: 16-bit / 24-bit; Compression 1 (fastest) – 8
+(smallest)</td>
+</tr>
+<tr>
+<td>Ogg</td>
+<td>Ogg Vorbis (lossy)</td>
+<td>Quality slider 0.0 (lowest) – 1.0 (highest); default 0.5</td>
+</tr>
+<tr>
+<td>AAC/ALAC</td>
+<td>Apple lossy / lossless</td>
+<td><strong>macOS only.</strong> Toggle between AAC (128 – 320 kbps) and
+ALAC (16 / 24-bit lossless)</td>
+</tr>
+</tbody>
+</table>
+<figure>
+<img src="screenshots/manual/S-50_export_audio_flac.png"
+alt="S-50 — FLAC tab showing bit depth and compression options" />
+<figcaption aria-hidden="true">S-50 — FLAC tab showing bit depth and
+compression options</figcaption>
+</figure>
+<figure>
+<img src="screenshots/manual/S-52_export_audio_ogg.png"
+alt="S-52 — Ogg tab showing quality slider" />
+<figcaption aria-hidden="true">S-52 — Ogg tab showing quality
+slider</figcaption>
+</figure>
+<figure>
+<img src="screenshots/manual/S-51_export_audio_aac_alac.png"
+alt="S-51 — AAC/ALAC tab (macOS only) showing codec toggle and bitrate options" />
+<figcaption aria-hidden="true">S-51 — AAC/ALAC tab (macOS only) showing
+codec toggle and bitrate options</figcaption>
+</figure>
+<blockquote>
+<p><strong>Note:</strong> The AAC/ALAC tab appears only on macOS. On
+other platforms, FLAC (24-bit, compression 5) is the recommended
+lossless format.</p>
+</blockquote>
+<h4 id="sample-rate">Sample rate</h4>
+<p>A <strong>Sample Rate</strong> selector below the option panels
+offers: - <strong>Match source</strong> — uses the sample rate of the
+analyzed audio file (recommended) - 44 100 Hz / 48 000 Hz / 96 000 Hz —
+override if your target system requires a specific rate</p>
+<h4 id="exporting">Exporting</h4>
+<p>Click <strong>Export…</strong> to open a file save dialog. The file
+extension filter matches the selected format automatically. The render
+runs immediately after you confirm the file path; progress completes
+silently for typical analysis lengths (under 30 s). On completion the
+file is ready to use in your DAW, notation software, or Csound
+workflow.</p>
+<p>Click <strong>Cancel</strong> to dismiss the dialog without creating
+a file.</p>
 <hr />
 <h2 id="keyboard-shortcuts">12. Keyboard Shortcuts</h2>
 <h3 id="file">File</h3>
@@ -1418,11 +1563,27 @@ amplitude, bandwidth, phase).</p>
 <td>↑ / ↓</td>
 </tr>
 <tr>
-<td>Zoom time in/out</td>
-<td>⌥+scroll</td>
+<td>Pan frequency by page</td>
+<td>Page Up / Page Down</td>
 </tr>
 <tr>
-<td>Zoom frequency in/out</td>
+<td>Jump playback to start / end</td>
+<td>Home / End (or ⌘← / ⌘→)</td>
+</tr>
+<tr>
+<td>Zoom frequency in / out</td>
+<td>scroll</td>
+</tr>
+<tr>
+<td>Zoom time in / out</td>
+<td>⌘+scroll or ⌥+scroll</td>
+</tr>
+<tr>
+<td>Zoom both axes</td>
+<td>pinch (trackpad)</td>
+</tr>
+<tr>
+<td>Pan time</td>
 <td>⇧+scroll</td>
 </tr>
 </tbody>
