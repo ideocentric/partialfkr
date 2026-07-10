@@ -20,14 +20,6 @@ Source: `/Users/matt/Documents/GitHub/personal/partialfkr/samples/demo.pfkr`
 | S-21_gain_fader.png | |
 | S-24_window_all_selected.png | |
 | S-25_canvas_all_selected.png | |
-| S-26_edit_mode_select_active.png | |
-| S-27_edit_mode_direct_select_active.png | |
-| S-28_tools_panel_default.png | |
-| S-29_tools_select_mode.png | |
-| S-30_tools_direct_select_mode.png | |
-| S-33_filters_default.png | |
-| S-34_filters_topN_set.png | |
-| S-35_filters_freq_band.png | |
 | S-36_window_after_filter.png | |
 | S-37_canvas_after_topN_filter.png | |
 | S-42_inspector_no_selection.png | |

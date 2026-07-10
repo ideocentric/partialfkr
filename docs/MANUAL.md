@@ -80,11 +80,7 @@ The right panel uses a tabbed layout. The **Tools tab** (default) contains all i
 
 ![S-06 — Right panel with Filters tab active](screenshots/auto/S-06_tab_filters_active.png)
 
-The following annotated images label each area and control:
-
-![S-03a — Interface overview with numbered callouts](screenshots/manual/S-03a.png)
-
-![S-03b — Right panel detail](screenshots/manual/S-03b.png)
+The following annotated images label each area and control (see the legend below):
 
 ![S-03c — Tools tab, transport bar, and canvas markers detail (items 1–26)](screenshots/manual/S-03c.png)
 
@@ -141,6 +137,8 @@ Once analysis is complete, the window title updates to show the source filename 
 > **Note:** A project can only hold one analyzed audio file. Once analysis is complete, the Analyze Audio menu item is disabled for that window. Open a new window (⌘N) to analyze a second file.
 
 ![S-07 — Analyze Audio file picker](screenshots/manual/S-07_open_analysis_file.png)
+
+![S-03a — Analysis in progress](screenshots/manual/S-03a.png)
 
 ### 3.2 Opening a project (.pfkr)
 
@@ -302,7 +300,7 @@ PartialFKR has two selection modes, chosen with keyboard shortcuts or the **Edit
 
 Select mode operates on **whole partials**.
 
-![S-29 — Tools tab with Select mode active](screenshots/auto/S-29_tools_select_mode.png)
+![S-05 — Right panel with Tools tab active](screenshots/auto/S-05_tab_tools_active.png)
 
 | Action | Result |
 |---|---|
@@ -320,7 +318,7 @@ Selected partials are highlighted with a yellow tint.
 
 Direct Select mode operates on **individual breakpoints** — the control points that define a partial's trajectory.
 
-![S-30 — Tools tab with Direct Select mode active](screenshots/auto/S-30_tools_direct_select_mode.png)
+![S-05 — Right panel with Tools tab active](screenshots/auto/S-05_tab_tools_active.png)
 
 | Action | Result |
 |---|---|
@@ -419,7 +417,7 @@ The **Filters tab** of the right panel contains six sliders (items 27–32) that
 
 Filtering is non-destructive: partials are hidden, not deleted. Use the **Reset** button (item 33) to restore all partials.
 
-![S-33 — Filters tab with all sliders at default values](screenshots/auto/S-33_filters_default.png)
+![S-06 — Right panel with Filters tab active](screenshots/auto/S-06_tab_filters_active.png)
 
 ### 8.1 Workflow
 
@@ -472,7 +470,7 @@ Hides partials with very little total energy (amplitude × duration).
 - Energy is computed as ∑(average amplitude × Δt) in linear·seconds.
 - This filter is more musically useful than Min Amplitude for removing low-level sustained partials.
 
-![S-34 — Filters tab with Top-N set to 12](screenshots/auto/S-34_filters_topN_set.png)
+![S-06 — Right panel with Filters tab active](screenshots/auto/S-06_tab_filters_active.png)
 
 ![S-37 — Canvas showing filtered result (fewer partials visible)](screenshots/auto/S-37_canvas_after_topN_filter.png)
 
