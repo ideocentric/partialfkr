@@ -41,6 +41,14 @@ public:
 
     bool isShowingTools() const noexcept { return showTools; }
 
+    /** Update which tab is drawn as active. Use when the tab is switched
+     *  programmatically (e.g. from MainComponent) so the chrome stays in sync
+     *  with the visible content panel. */
+    void setShowingTools(bool tools)
+    {
+        if (showTools != tools) { showTools = tools; repaint(); }
+    }
+
     /** Called with true = Tools tab, false = Filters tab. */
     std::function<void(bool)> onTabChanged;
 

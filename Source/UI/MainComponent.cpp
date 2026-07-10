@@ -411,9 +411,12 @@ MainComponent::MainComponent()
 
     addAndMakeVisible(partialView);
     addAndMakeVisible(transportBar);
-    addAndMakeVisible(sideTabBar);      // drawn first — panels must be added after
-    addAndMakeVisible(reductionPanel);  // drawn on top of sideTabBar chrome
-    addAndMakeVisible(toolsPanel);
+    addAndMakeVisible(sideTabBar);
+    // The content panels are children of the SideTabBar (not siblings), so the
+    // tab chrome and its content are one component subtree — a single snapshot
+    // captures both. Visibility is set below.
+    sideTabBar.addChildComponent(reductionPanel);
+    sideTabBar.addChildComponent(toolsPanel);
     addAndMakeVisible(inspectorPanel);
     addAndMakeVisible(levelMeter);
 
@@ -654,9 +657,9 @@ void MainComponent::resized()
         auto sideTabArea     = sideArea.reduced(tabMarginH, 0);
         sideTabBar.setBounds(sideTabArea);
 
-        // Position content panels inside the SideTabBar's content area
-        const auto panelArea = sideTabBar.getContentBounds()
-                                         .translated(sideTabArea.getX(), sideTabArea.getY());
+        // Panels are children of sideTabBar — position them in its LOCAL content
+        // area (no translation to MainComponent coordinates needed).
+        const auto panelArea = sideTabBar.getContentBounds();
         toolsPanel    .setBounds(showToolsTab ? panelArea : juce::Rectangle<int>{});
         reductionPanel.setBounds(showToolsTab ? juce::Rectangle<int>{} : panelArea);
 
@@ -684,6 +687,7 @@ void MainComponent::resized()
 void MainComponent::switchSideTab(bool showTools)
 {
     showToolsTab = showTools;
+    sideTabBar.setShowingTools(showTools);   // keep tab chrome in sync with programmatic switches
     toolsPanel.setVisible(showTools);
     reductionPanel.setVisible(!showTools);
     resized();

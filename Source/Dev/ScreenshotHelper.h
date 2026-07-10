@@ -77,14 +77,23 @@ private:
     }
 
     /** Find a component by ID starting from the content component, not the
-     *  DocumentWindow root (which adds JUCE-internal wrapper layers). */
+     *  DocumentWindow root (which adds JUCE-internal wrapper layers). Searches
+     *  the whole subtree so nested components (e.g. panels hosted inside the
+     *  SideTabBar) are found. */
     juce::Component* findComp(const juce::String& id) const
     {
-        auto* content = window.getContentComponent();
-        if (content == nullptr) return nullptr;
-        // Check the content component itself first, then its children.
-        if (content->getComponentID() == id) return content;
-        return content->findChildWithID(id);
+        if (auto* content = window.getContentComponent())
+            return findCompRecursive(*content, id);
+        return nullptr;
+    }
+
+    static juce::Component* findCompRecursive(juce::Component& root, const juce::String& id)
+    {
+        if (root.getComponentID() == id) return &root;
+        for (int i = 0; i < root.getNumChildComponents(); ++i)
+            if (auto* found = findCompRecursive(*root.getChildComponent(i), id))
+                return found;
+        return nullptr;
     }
 
     void saveWindow(const juce::String& id)
@@ -109,8 +118,18 @@ private:
             return;
         }
         comp.repaint();
-        auto img = comp.createComponentSnapshot(bounds);
+        save(comp.createComponentSnapshot(bounds), id);
+    }
+
+    void save(const juce::Image& img, const juce::String& id)
+    {
+        if (! img.isValid())
+        {
+            juce::Logger::writeToLog("  skipped (invalid image): " + id);
+            return;
+        }
         juce::File f = outputDir.getChildFile(id + ".png");
+        f.deleteFile();  // FileOutputStream appends to an existing file — overwrite instead
         juce::FileOutputStream os(f);
         if (os.openedOk())
         {
@@ -192,122 +211,91 @@ private:
                 saveChild("inspectorPanel","S-42_inspector_no_selection");
                 saveChild("levelMeter",    "S-20_level_meter");
                 saveChild("gainKnob",      "S-21_gain_fader");
-                saveChild("sideTabBar",    "S-05_tab_tools_active");
-                saveChild("toolsPanel",    "S-28_tools_panel_default");
+                saveChild("sideTabBar",    "S-05_tab_tools_active");   // canonical Tools panel (chrome + content)
                 startTimer(200);
                 break;
 
-            // ── 2: Switch to Filters tab — capture panel + tab chrome ────────
+            // ── 2: Zoom in ───────────────────────────────────────────────────
             case 2:
-                mc->switchSideTab(false);
-                startTimer(300);
+                invoke(CommandIDs::viewZoomIn);
+                invoke(CommandIDs::viewZoomIn);
+                invoke(CommandIDs::viewZoomIn);
+                startTimer(200);
                 break;
 
             case 3:
-                saveChild("sideTabBar",    "S-06_tab_filters_active");
-                saveChild("reductionPanel","S-33_filters_default");
-                mc->switchSideTab(true);   // back to Tools
-                startTimer(200);
-                break;
-
-            // ── 4: Zoom in ───────────────────────────────────────────────────
-            case 4:
-                invoke(CommandIDs::viewZoomIn);
-                invoke(CommandIDs::viewZoomIn);
-                invoke(CommandIDs::viewZoomIn);
-                startTimer(200);
-                break;
-
-            case 5:
                 saveChild("partialView", "S-12_canvas_zoomed_in");
                 invoke(CommandIDs::viewZoomFit);
                 startTimer(200);
                 break;
 
-            // ── 6: Zoom to fit ───────────────────────────────────────────────
-            case 6:
+            // ── 4: Zoom to fit, then select all ──────────────────────────────
+            case 4:
                 saveChild("partialView", "S-13_canvas_zoom_fit");
                 invoke(juce::StandardApplicationCommandIDs::selectAll);
                 startTimer(200);
                 break;
 
-            // ── 7: All partials selected ─────────────────────────────────────
-            case 7:
+            // ── 5: All partials selected ─────────────────────────────────────
+            case 5:
                 saveWindow("S-24_window_all_selected");
                 saveChild("partialView",   "S-25_canvas_all_selected");
                 saveChild("inspectorPanel","S-43_inspector_with_selection");
-                saveChild("toolsPanel",    "S-29_tools_select_mode");
                 invoke(juce::StandardApplicationCommandIDs::deselectAll);
                 startTimer(200);
                 break;
 
-            // ── 8: Direct Select mode ────────────────────────────────────────
-            case 8:
-                keyToPartialView('a');
-                startTimer(200);
+            // ── 6: Hide the right panel ──────────────────────────────────────
+            case 6:
+                invoke(CommandIDs::viewTogglePanel);   // hide
+                startTimer(300);
                 break;
 
-            case 9:
-                saveChild("toolsPanel", "S-30_tools_direct_select_mode");
-                keyToPartialView('v');   // back to Select
-                invoke(CommandIDs::viewTogglePanel);
-                startTimer(200);
-                break;
-
-            // ── 10: Panel hidden ─────────────────────────────────────────────
-            case 10:
+            case 7:
                 saveWindow("S-04_panel_hidden");
                 invoke(CommandIDs::viewTogglePanel);   // show again
                 startTimer(300);
                 break;
 
-            // ── 11: Filters tab — Top-N filter ───────────────────────────────
-            case 11:
+            // ── 8: Filters tab — capture default, then apply Top-N filter ────
+            case 8:
                 mc->switchSideTab(false);   // show Filters tab
+                startTimer(300);
+                break;
+
+            case 9:
+                saveChild("sideTabBar", "S-06_tab_filters_active");   // canonical Filters panel (default)
                 setNthSlider("reductionPanel", 0, 12.0);
                 startTimer(300);
                 break;
 
-            case 12:
-                saveChild("reductionPanel","S-34_filters_topN_set");
+            // ── 10: Top-N filter applied — canvas + window result ────────────
+            case 10:
                 saveChild("partialView",   "S-37_canvas_after_topN_filter");
                 saveWindow("S-36_window_after_filter");
-                clickButton("reductionPanel", "Reset");
-                startTimer(200);
-                break;
-
-            // ── 13: Frequency band filter ────────────────────────────────────
-            case 13:
-                setNthSlider("reductionPanel", 3, 150.0);
-                setNthSlider("reductionPanel", 4, 1200.0);
-                startTimer(300);
-                break;
-
-            case 14:
-                saveChild("reductionPanel","S-35_filters_freq_band");
                 clickButton("reductionPanel", "Reset");
                 mc->switchSideTab(true);   // back to Tools tab
                 invoke(CommandIDs::transportLoop);
                 startTimer(200);
                 break;
 
-            // ── 15: Loop enabled ─────────────────────────────────────────────
-            case 15:
+            // ── 11: Loop enabled ─────────────────────────────────────────────
+            case 11:
                 saveChild("transportBar", "S-19_transport_loop_on");
                 invoke(CommandIDs::transportLoop);   // loop back off
                 invoke(CommandIDs::transportPlayPause);   // start playback
                 startTimer(800);   // let the playhead advance mid-file
                 break;
 
-            // ── 16: Playing — pause glyph, running time ──────────────────────
-            case 16:
+            // ── 12: Playing — pause glyph, running time ──────────────────────
+            case 12:
                 saveChild("transportBar", "S-17_playing");
                 invoke(CommandIDs::transportPlayPause);   // pause (retain position)
                 startTimer(250);
                 break;
 
-            // ── 17: Paused — play glyph, position retained ───────────────────
-            case 17:
+            // ── 13: Paused — play glyph, position retained ───────────────────
+            case 13:
                 saveChild("transportBar", "S-18_paused");
                 invoke(CommandIDs::transportStop);   // reset to in-point
                 writeManifest();
