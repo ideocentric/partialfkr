@@ -133,13 +133,23 @@ jobs:
             --clobber
 
   # ── Windows installers ────────────────────────────────────────────────────────
-  # Builds unsigned NSIS installers for x86_64 and arm64, uploads to draft release.
-  # Installers are unsigned — SmartScreen will warn on first launch.
-  # See docs/DISTRIBUTION.md § Windows for signing notes.
+  # Builds NSIS installers for x86_64 and arm64, uploads to draft release.
+  #
+  # Authenticode signing via SignPath.io is staged but INERT until the repo secret
+  # SIGNPATH_API_TOKEN and the repo variable SIGNPATH_ORGANIZATION_ID are set. Until
+  # then the signing steps are skipped and installers ship unsigned (SmartScreen warns
+  # on first launch). Once SignPath approves the open-source project and both values
+  # are configured, the app binary is signed before packaging and the installer is
+  # signed after — no further workflow edits needed. See docs/DISTRIBUTION.md § Windows.
   build-windows:
     name: Windows ${{ matrix.name }}
     needs: create-release
     runs-on: ${{ matrix.runner }}
+    # Mirror the secret/variable into env so step-level `if:` guards can test them —
+    # the `secrets` context is not available in `if:` conditions, but `env` is.
+    env:
+      SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+      SIGNPATH_ORGANIZATION_ID: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
     strategy:
       fail-fast: false
       matrix:
@@ -172,12 +182,60 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel
 
+      # ── App-binary signing (skipped until SignPath is configured) ─────────────
+      # The app .exe must be signed BEFORE cpack so the installer bundles the signed
+      # binary. The signed exe is downloaded back into its build location in place.
+      - name: Upload unsigned app binary for signing
+        if: ${{ env.SIGNPATH_API_TOKEN != '' }}
+        id: upload-app
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-app-${{ matrix.name }}
+          path: build\PartialFKR_artefacts\Release\PartialFKR.exe
+
+      - name: Sign app binary
+        if: ${{ env.SIGNPATH_API_TOKEN != '' }}
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          connector-url: https://app.signpath.io
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: PartialFKR
+          signing-policy-slug: release-signing
+          github-artifact-id: ${{ steps.upload-app.outputs.artifact-id }}
+          wait-for-completion: true
+          # Overwrite the unsigned exe in place so cpack packages the signed one.
+          output-artifact-directory: build\PartialFKR_artefacts\Release
+
       - name: Install NSIS
         run: choco install nsis -y
 
       - name: Package
         working-directory: build
         run: cpack -C Release
+
+      # ── Installer signing (skipped until SignPath is configured) ──────────────
+      - name: Upload unsigned installer for signing
+        if: ${{ env.SIGNPATH_API_TOKEN != '' }}
+        id: upload-installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-installer-${{ matrix.name }}
+          path: build\PartialFKR-*-Windows-*.exe
+
+      - name: Sign installer
+        if: ${{ env.SIGNPATH_API_TOKEN != '' }}
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          connector-url: https://app.signpath.io
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: PartialFKR
+          signing-policy-slug: release-signing
+          github-artifact-id: ${{ steps.upload-installer.outputs.artifact-id }}
+          wait-for-completion: true
+          # Overwrite the unsigned installer in place before the release upload.
+          output-artifact-directory: build
 
       - name: Upload to release
         env:

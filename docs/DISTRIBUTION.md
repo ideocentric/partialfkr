@@ -222,16 +222,21 @@ with verbose output: `cmake --build build --target dmg -- -v`.
 
 ## Windows
 
-### Current status — signing deferred
+### Current status — signing staged, inert
 
-Windows release artifacts are currently **unsigned**. The CI job produces an NSIS installer
-for contributor testing only (see the `PartialFKR-Windows-<arch>-CI-unsigned` artifact).
+Windows release artifacts are currently **unsigned**. Authenticode signing via SignPath.io
+is fully wired into the release workflow but **gated off** — the signing steps skip unless the
+repo secret `SIGNPATH_API_TOKEN` and variable `SIGNPATH_ORGANIZATION_ID` are set (see
+[When ready: SignPath.io](#when-ready-signpathio) below). Setting both is the entire
+activation; no workflow edits are needed.
 
-Signing is deferred until the project has sufficient download history to build SmartScreen
-reputation. Signing without established reputation still results in a SmartScreen warning
-("Windows protected your PC") — the same experience as an unsigned binary — so the overhead
-of setting up signing is not yet justified. Users who download from a known source (GitHub
-releases page) can click **More info → Run anyway** to proceed.
+Signing is deferred (steps left inert) until the project has sufficient download history to
+build SmartScreen reputation. Signing without established reputation still results in a
+SmartScreen warning ("Windows protected your PC") — the same experience as an unsigned
+binary — so activating it earns little until there is real download volume. Users who
+download from a known source (GitHub releases page) can click **More info → Run anyway** to
+proceed. Note: **winget submission effectively requires a signed installer**, so activate
+signing before pursuing a winget listing.
 
 ### Building the installer
 
@@ -265,58 +270,82 @@ GitHub repository ownership.
 3. Generate a **CI User API token** in the SignPath portal and add it as a GitHub repository
    secret named `SIGNPATH_API_TOKEN`.
 
-4. Note your **Organization ID** from the SignPath portal — it appears in the URL and is
-   needed in the workflow.
+4. Note your **Organization ID** from the SignPath portal (it appears in the portal URL) and
+   add it as a GitHub repository **variable** (not secret) named `SIGNPATH_ORGANIZATION_ID`.
 
-#### GitHub Actions workflow excerpt
+5. In the SignPath portal, confirm the project slug is `PartialFKR` and the signing-policy
+   slug is `release-signing` — these are hard-coded in the workflow (change both places if
+   you name them differently).
 
-Add the following steps to the Windows job after building, when ready to enable signing.
-Both the application binary and the installer must be signed separately.
+That's the entire activation. **The signing steps are already staged in
+`.github/workflows/release.yml`** and are gated on `env.SIGNPATH_API_TOKEN != ''`, so they
+stay inert (installers ship unsigned) until the secret and variable above exist. Once both
+are set, the next release run signs the app binary before packaging and the installer after —
+no workflow edits required.
+
+#### The staged steps (for reference)
+
+The Windows job already contains the following, guarded so they no-op until configured. The
+app `.exe` is signed **before** `cpack` (so the installer bundles the signed binary), and the
+installer `.exe` is signed **after**. Both signed artifacts are downloaded back in place so the
+existing release-upload step picks them up unchanged.
 
 ```yaml
 - name: Build
   run: cmake --build build --config Release --parallel
 
-- name: Upload unsigned binary for signing
+- name: Upload unsigned app binary for signing
+  if: ${{ env.SIGNPATH_API_TOKEN != '' }}
+  id: upload-app
   uses: actions/upload-artifact@v4
   with:
-    name: unsigned-binary
+    name: unsigned-app-${{ matrix.name }}
     path: build\PartialFKR_artefacts\Release\PartialFKR.exe
 
-- name: Sign application binary
-  uses: signpath/github-action-submit-signing-request@v1
+- name: Sign app binary
+  if: ${{ env.SIGNPATH_API_TOKEN != '' }}
+  uses: signpath/github-action-submit-signing-request@v2
   with:
+    connector-url: https://app.signpath.io
     api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
-    organization-id: '<your-organization-id>'
-    project-slug: 'PartialFKR'
-    signing-policy-slug: 'release-signing'
-    github-artifact-id: 'unsigned-binary'
+    organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+    project-slug: PartialFKR
+    signing-policy-slug: release-signing
+    # Numeric artifact id from the upload step — NOT the artifact name.
+    github-artifact-id: ${{ steps.upload-app.outputs.artifact-id }}
     wait-for-completion: true
-    output-artifact-directory: signed-binary
+    output-artifact-directory: build\PartialFKR_artefacts\Release
 
 - name: Package
   working-directory: build
   run: cpack -C Release
 
 - name: Upload unsigned installer for signing
+  if: ${{ env.SIGNPATH_API_TOKEN != '' }}
+  id: upload-installer
   uses: actions/upload-artifact@v4
   with:
-    name: unsigned-installer
+    name: unsigned-installer-${{ matrix.name }}
     path: build\PartialFKR-*-Windows-*.exe
 
 - name: Sign installer
-  uses: signpath/github-action-submit-signing-request@v1
+  if: ${{ env.SIGNPATH_API_TOKEN != '' }}
+  uses: signpath/github-action-submit-signing-request@v2
   with:
+    connector-url: https://app.signpath.io
     api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
-    organization-id: '<your-organization-id>'
-    project-slug: 'PartialFKR'
-    signing-policy-slug: 'release-signing'
-    github-artifact-id: 'unsigned-installer'
+    organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+    project-slug: PartialFKR
+    signing-policy-slug: release-signing
+    github-artifact-id: ${{ steps.upload-installer.outputs.artifact-id }}
     wait-for-completion: true
-    output-artifact-directory: signed-installer
+    output-artifact-directory: build
 ```
 
-Replace `<your-organization-id>` with the ID from the SignPath portal before enabling.
+> **Note on `github-artifact-id`:** the current action (v2) requires the *numeric* artifact
+> id emitted by `actions/upload-artifact@v4` (`steps.<id>.outputs.artifact-id`), not the
+> artifact *name*. `connector-url` is also required in v2. Earlier drafts of this doc passed
+> the name and omitted the connector — both are fixed above.
 
 ### Troubleshooting
 
