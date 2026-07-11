@@ -391,7 +391,7 @@ if(UNIX AND NOT APPLE)
     endif()
     # DEB
     set(CPACK_DEBIAN_PACKAGE_MAINTAINER
-        "Matt Comeione <matt@ideocentric.com>")
+        "PartialFKR <oss@ideocentric.com>")
     set(CPACK_DEBIAN_PACKAGE_SECTION      "sound")
     set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "${_deb_arch}")
     set(CPACK_DEBIAN_PACKAGE_DEPENDS

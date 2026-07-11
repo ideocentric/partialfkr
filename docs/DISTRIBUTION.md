@@ -264,8 +264,40 @@ GitHub repository ownership.
 
 2. Once approved, log into the SignPath portal and:
    - Create a **Project** for PartialFKR
-   - Create an **Artifact Configuration** that targets `.exe` files
+   - Create an **Artifact Configuration** (see below)
    - Create a **Signing Policy** (e.g. `release-signing`) linked to the open source certificate
+
+   ##### Artifact Configuration
+
+   The Artifact Configuration is an XML document that tells SignPath what's inside the
+   uploaded artifact and how to sign it. The workflow signs **two artifacts separately**, and
+   in both cases the artifact is a single Windows PE file (the app `.exe`, then the NSIS
+   installer `.exe`) — `actions/upload-artifact` zips it, and SignPath must be told to reach
+   inside that zip and Authenticode-sign the `.exe`. A single configuration works for both,
+   because both are "a zip containing one PE file":
+
+   ```xml
+   <artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+     <zip-file>
+       <pe-file path="*.exe">
+         <authenticode-sign />
+       </pe-file>
+     </zip-file>
+   </artifact-configuration>
+   ```
+
+   Name it (e.g.) `exe-authenticode` and reference the same configuration from both signing
+   requests. Notes:
+   - `path="*.exe"` matches the single top-level `.exe` inside the uploaded artifact zip. The
+     app binary uploads as `PartialFKR.exe`; the installer as `PartialFKR-<version>-Windows-<arch>.exe`.
+   - If you later switch the installer step to upload a **directory** or multiple files, the
+     glob or nesting here must change to match.
+   - **Origin verification** (the check that the request came from this repo's Actions run on
+     the expected branch/workflow) is configured on the *Project*/*Signing Policy* in the
+     portal — link the SignPath project to `github.com/ideocentric/partialfkr` and restrict
+     the policy to the `release.yml` workflow. Nothing in this repo needs to change for it;
+     the action passes the GitHub run context automatically via `github-token`
+     (defaults to the job's `GITHUB_TOKEN`).
 
 3. Generate a **CI User API token** in the SignPath portal and add it as a GitHub repository
    secret named `SIGNPATH_API_TOKEN`.

@@ -48,7 +48,7 @@ ctest --test-dir build --output-on-failure
 
 ## Project status
 
-Initial scaffolding. First milestone: load a WAV, analyse with Loris, display partials in the OpenGL canvas, resynthesize interactively.
+**v0.1.3 released.** The core workflow loop works end-to-end: load a WAV → Loris analysis → interactive partial canvas → real-time resynthesis → reduce → export. Save/load (`.pfkr`), a standard menu bar, transport with zoom/scroll, inspector, and tools/reduction panels are all in place. Exporters: Csound, MIDI (MPE), MIDI package (per-partial), audio (AIFF/WAV/FLAC/Ogg/AAC/ALAC), SuperCollider, JSON, SDIF. Cross-platform CI is green on all five targets (macOS universal DMG, Linux x86_64/arm64 DEB+RPM, Windows x64/arm64 NSIS).
 
 ## License
 
